@@ -1,0 +1,48 @@
+{
+  "name": "ai-story",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Production-ready scaffold for AI-generated interactive fiction.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write .",
+    "check-format": "prettier --check .",
+    "demo:user": "node scripts/create-demo-user.mjs",
+    "demo:sessions": "node scripts/create-demo-sessions.mjs",
+    "demo:seed": "npm run demo:user && npm run demo:sessions"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.90.0",
+    "bcryptjs": "^3.0.3",
+    "jose": "^6.2.2",
+    "mongoose": "^9.5.0",
+    "next": "^16.2.4",
+    "openai": "^6.34.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.16",
+    "@types/node": "^24.8.1",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^9.38.0",
+    "eslint-config-next": "^16.2.4",
+    "mongodb-memory-server": "^11.0.1",
+    "prettier": "^3.6.2",
+    "prettier-plugin-tailwindcss": "^0.7.1",
+    "tailwindcss": "^4.1.16",
+    "typescript": "^5.9.3",
+    "vite-tsconfig-paths": "^5.1.4",
+    "vitest": "^3.2.4"
+  }
+}

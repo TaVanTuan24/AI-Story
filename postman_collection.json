@@ -1,0 +1,65 @@
+{
+  "info": {
+    "name": "AI Story API",
+    "_postman_id": "6d8d0f43-9d83-4ce2-a6ec-d6b2192b2d83",
+    "description": "Core API routes for the AI interactive fiction platform.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Register",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/api/auth/register", "host": ["{{baseUrl}}"], "path": ["api", "auth", "register"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"mira@example.com\",\n  \"displayName\": \"Mira\",\n  \"password\": \"very-secure-password\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Create Session",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": { "raw": "{{baseUrl}}/api/story-sessions", "host": ["{{baseUrl}}"], "path": ["api", "story-sessions"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"titleHint\": \"Lantern Case\",\n  \"premise\": \"A missing brother leaves messages that predict crimes one night before they happen.\",\n  \"genre\": \"mystery\",\n  \"tone\": \"rain-soaked noir\",\n  \"enginePreset\": \"mystery\",\n  \"deterministic\": true,\n  \"seed\": \"spec-seed\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Start Session",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": { "raw": "{{baseUrl}}/api/story-sessions/{{sessionId}}/start", "host": ["{{baseUrl}}"], "path": ["api", "story-sessions", "{{sessionId}}", "start"] }
+      }
+    },
+    {
+      "name": "Submit Turn",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": { "raw": "{{baseUrl}}/api/story-sessions/{{sessionId}}/turn", "host": ["{{baseUrl}}"], "path": ["api", "story-sessions", "{{sessionId}}", "turn"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"choiceId\": \"REPLACE_WITH_CHOICE_ID\"\n}"
+        }
+      }
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "token", "value": "" },
+    { "key": "sessionId", "value": "" }
+  ]
+}

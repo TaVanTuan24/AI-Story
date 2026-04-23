@@ -1,0 +1,10 @@
+export { characterGeneratorPrompt } from "@/server/ai/prompts/character-generator";
+export { choiceGeneratorPrompt } from "@/server/ai/prompts/choice-generator";
+export { consistencyCheckerPrompt } from "@/server/ai/prompts/consistency-checker";
+export { customActionInterpreterPrompt } from "@/server/ai/prompts/custom-action-interpreter";
+export { nextSceneGeneratorPrompt } from "@/server/ai/prompts/next-scene-generator";
+export { openingSceneGeneratorPrompt } from "@/server/ai/prompts/opening-scene-generator";
+export { recapGeneratorPrompt } from "@/server/ai/prompts/recap-generator";
+export { sessionTitleGeneratorPrompt } from "@/server/ai/prompts/session-title-generator";
+export { turnSummarizerPrompt } from "@/server/ai/prompts/turn-summarizer";
+export { worldGeneratorPrompt } from "@/server/ai/prompts/world-generator";

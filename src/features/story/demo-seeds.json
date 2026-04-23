@@ -1,0 +1,62 @@
+[
+  {
+    "id": "fantasy",
+    "label": "Fantasy",
+    "titleHint": "The Crown Beneath the River",
+    "genre": "fantasy",
+    "tone": "mythic, intimate, and adventurous",
+    "enginePreset": "rpg-lite",
+    "difficulty": "standard",
+    "lengthPreference": "long",
+    "premise": "A reluctant river-mage must escort a stolen crown through a kingdom where every bridge remembers who has lied on it.",
+    "seedPrompt": "Focus on ancient bargains, clever companions, and choices with social consequences."
+  },
+  {
+    "id": "cyberpunk-mystery",
+    "label": "Cyberpunk Mystery",
+    "titleHint": "The Last Honest Signal",
+    "genre": "mystery",
+    "tone": "neon-noir, suspicious, and rain-soaked",
+    "enginePreset": "mystery",
+    "difficulty": "standard",
+    "lengthPreference": "long",
+    "premise": "A memory auditor in a vertical city investigates a murder where the victim keeps appearing in corrupted security footage recorded tomorrow.",
+    "seedPrompt": "Use cyberpunk atmosphere, clue tracking, corporate pressure, and branching suspect interviews."
+  },
+  {
+    "id": "romance-drama",
+    "label": "Romance Drama",
+    "titleHint": "When the Orchard Lights Return",
+    "genre": "romance",
+    "tone": "tender, volatile, and emotionally grounded",
+    "enginePreset": "social-drama",
+    "difficulty": "relaxed",
+    "lengthPreference": "medium",
+    "premise": "Two former rivals inherit neighboring orchard houses and must plan one final harvest festival while old betrayals and unfinished feelings surface.",
+    "seedPrompt": "Keep the stakes personal, dialogue-rich, and focused on trust, vulnerability, and repair."
+  },
+  {
+    "id": "horror-survival",
+    "label": "Horror Survival",
+    "titleHint": "The Shelter Under Wakefield Pines",
+    "genre": "horror",
+    "tone": "claustrophobic, eerie, and survival-driven",
+    "enginePreset": "rpg-lite",
+    "difficulty": "hard",
+    "lengthPreference": "medium",
+    "premise": "A storm traps a volunteer rescue team in an abandoned mountain shelter where the radio repeats voices from people not yet missing.",
+    "seedPrompt": "Track limited supplies, rising dread, difficult tradeoffs, and avoid cheap jump scares."
+  },
+  {
+    "id": "political-thriller",
+    "label": "Political Thriller",
+    "titleHint": "The Minister's Seventh Door",
+    "genre": "politics",
+    "tone": "tense, strategic, and morally gray",
+    "enginePreset": "mystery",
+    "difficulty": "standard",
+    "lengthPreference": "long",
+    "premise": "A junior minister discovers a sealed coalition agreement proving the next election has already been traded away by every major party.",
+    "seedPrompt": "Emphasize leverage, public trust, backroom negotiations, and irreversible political choices."
+  }
+]

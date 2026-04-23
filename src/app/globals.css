@@ -1,0 +1,170 @@
+@import "tailwindcss";
+
+:root {
+  --background: #efe2d4;
+  --background-soft: #f8f2ea;
+  --foreground: #191510;
+  --muted: rgba(35, 27, 21, 0.66);
+  --surface: rgba(255, 249, 242, 0.82);
+  --surface-strong: rgba(255, 252, 248, 0.94);
+  --surface-elevated: rgba(255, 254, 251, 0.98);
+  --surface-dark: #1e1815;
+  --accent: #a24c2d;
+  --accent-strong: #82361d;
+  --accent-soft: rgba(162, 76, 45, 0.12);
+  --success: #2d7a54;
+  --warning: #91631a;
+  --info: #42569f;
+  --danger: #9a3838;
+  --border: rgba(77, 43, 29, 0.12);
+  --border-strong: rgba(77, 43, 29, 0.2);
+  --shadow-soft: 0 24px 60px rgba(67, 42, 29, 0.08);
+  --shadow-card: 0 10px 30px rgba(67, 42, 29, 0.08);
+  --radius-card: 2rem;
+  --radius-panel: 1.5rem;
+  --content-width: 80rem;
+}
+
+body {
+  background:
+    radial-gradient(circle at top left, rgba(178, 108, 72, 0.24), transparent 24%),
+    radial-gradient(circle at top right, rgba(215, 190, 140, 0.2), transparent 22%),
+    radial-gradient(circle at bottom right, rgba(74, 93, 110, 0.12), transparent 24%),
+    linear-gradient(180deg, var(--background-soft) 0%, var(--background) 100%);
+  color: var(--foreground);
+  font-family:
+    "Iowan Old Style",
+    "Palatino Linotype",
+    "Book Antiqua",
+    "Baskerville Old Face",
+    Georgia,
+    serif;
+  min-height: 100vh;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  border-color: var(--border);
+  scroll-behavior: smooth;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+main,
+section,
+article,
+aside {
+  min-width: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  letter-spacing: -0.03em;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+select {
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, rgba(25, 21, 16, 0.5) 50%),
+    linear-gradient(135deg, rgba(25, 21, 16, 0.5) 50%, transparent 50%);
+  background-position:
+    calc(100% - 20px) calc(50% - 2px),
+    calc(100% - 14px) calc(50% - 2px);
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+}
+
+::selection {
+  background: rgba(160, 73, 42, 0.18);
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+
+.surface-glow {
+  position: relative;
+}
+
+.surface-glow::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.24), transparent 42%);
+  pointer-events: none;
+}
+
+.grain-overlay {
+  position: relative;
+}
+
+.grain-overlay::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0.08;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-size: 18px 18px;
+  mix-blend-mode: soft-light;
+}
+
+.animate-fade-up {
+  animation: fade-up 420ms ease-out both;
+}
+
+.animate-shimmer {
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 768px) {
+  body {
+    background:
+      radial-gradient(circle at top, rgba(178, 108, 72, 0.18), transparent 22%),
+      linear-gradient(180deg, var(--background-soft) 0%, var(--background) 100%);
+  }
+}
