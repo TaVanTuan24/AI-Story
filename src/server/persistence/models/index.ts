@@ -6,5 +6,6 @@ export { StorySessionModel } from "@/server/persistence/models/story-session-mod
 export { StorySummaryModel } from "@/server/persistence/models/story-summary-model";
 export { StoryWorldModel } from "@/server/persistence/models/story-world-model";
 export { UserModel } from "@/server/persistence/models/user-model";
+export { UserAISettingsModel } from "@/server/persistence/models/user-ai-settings-model";
 export { UserPreferenceModel } from "@/server/persistence/models/user-preference-model";
 export { TurnLogModel } from "@/server/persistence/models/turn-log-model";

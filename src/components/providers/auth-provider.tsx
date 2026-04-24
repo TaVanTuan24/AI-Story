@@ -54,6 +54,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     writeUser(input.user);
     setToken("session");
     setUser(input.user);
+    void api.me("session").then((result) => {
+      setPreferences(result.preferences);
+      writeUser(result.user);
+    });
   }
 
   async function refreshMe() {

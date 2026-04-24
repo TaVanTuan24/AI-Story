@@ -20,6 +20,7 @@ export const sessionListItemSchema = z.object({
   genre: z.string(),
   tone: z.string(),
   enginePreset: z.string(),
+  storyOutputLanguage: z.enum(["en", "vi"]).default("en"),
   difficulty: z.string().optional(),
   lengthPreference: z.string().optional(),
   status: z.string(),
@@ -34,6 +35,7 @@ const choiceSchema = z.object({
   label: z.string(),
   intent: z.string(),
   tags: z.array(z.string()).optional(),
+  risk: z.enum(["low", "medium", "high"]).optional(),
 });
 
 const sessionDetailSchema = sessionListItemSchema.extend({
@@ -53,9 +55,98 @@ const sessionDetailSchema = sessionListItemSchema.extend({
     .object({
       title: z.string(),
       body: z.string(),
+      risk: z.enum(["low", "medium", "high"]).optional(),
+      outcome: z.enum(["success", "partial_success", "failure"]).optional(),
+      roll: z.number().optional(),
+      gameOver: z.boolean().optional(),
       choices: z.array(choiceSchema),
     })
     .optional(),
+  playerStats: z
+    .object({
+      health: z.number(),
+      stamina: z.number(),
+      morale: z.number(),
+      trust: z.number(),
+      suspicion: z.number(),
+      danger: z.number(),
+      stress: z.number(),
+      focus: z.number(),
+    })
+    .optional(),
+  coreState: z
+    .object({
+      genre: z.string(),
+      tone: z.string(),
+      currentArc: z.string(),
+      turn: z.number(),
+      gameOver: z.boolean(),
+      endingType: z.enum(["good", "neutral", "bad"]).nullable(),
+      gameRules: z.array(z.string()),
+    })
+    .optional(),
+  dynamicStats: z
+    .array(
+      z.object({
+        key: z.string(),
+        value: z.number(),
+        label: z.string(),
+        description: z.string(),
+        min: z.number(),
+        max: z.number(),
+      }),
+    )
+    .optional(),
+  relationships: z
+    .array(
+      z.object({
+        characterId: z.string(),
+        name: z.string(),
+        role: z.string(),
+        affinity: z.number(),
+        trust: z.number(),
+        conflict: z.number(),
+        notes: z.string(),
+        statusFlags: z.array(z.string()),
+      }),
+    )
+    .optional(),
+  inventory: z
+    .array(
+      z.object({
+        id: z.string(),
+        label: z.string(),
+        quantity: z.number(),
+        tags: z.array(z.string()),
+      }),
+    )
+    .optional(),
+  abilities: z
+    .array(
+      z.object({
+        id: z.string(),
+        label: z.string(),
+        description: z.string(),
+        tags: z.array(z.string()),
+        charges: z.number().optional(),
+      }),
+    )
+    .optional(),
+  flags: z.array(z.string()).optional(),
+  worldMemory: z
+    .array(
+      z.object({
+        id: z.string(),
+        text: z.string(),
+        kind: z.string(),
+        turnNumber: z.number(),
+        pinned: z.boolean().optional(),
+      }),
+    )
+    .optional(),
+  lastChoice: z.string().nullable().optional(),
+  gameOver: z.boolean().optional(),
+  storyHistory: z.array(z.string()).optional(),
   canonicalState: z
     .object({
       sceneSummary: z.string(),
@@ -95,13 +186,13 @@ const sessionDetailSchema = sessionListItemSchema.extend({
 
 const turnResponseSchema = z.object({
   session: sessionDetailSchema,
-  turn: z.object({
-    turnNumber: z.number(),
-    sceneTitle: z.string(),
-    sceneBody: z.string(),
-    sceneSummary: z.string(),
-    choices: z.array(choiceSchema),
-  }),
+    turn: z.object({
+      turnNumber: z.number(),
+      sceneTitle: z.string(),
+      sceneBody: z.string(),
+      sceneSummary: z.string(),
+      choices: z.array(choiceSchema),
+    }),
   summary: z.object({
     short: z.string(),
     medium: z.string(),
@@ -171,11 +262,128 @@ const preferencesSchema = z.object({
   preferredTones: z.array(z.string()).default([]),
   avoidedThemes: z.array(z.string()).default([]),
   customPromptHints: z.array(z.string()).default([]),
+  interfaceLanguage: z.enum(["en", "vi"]).default("en"),
+  storyOutputLanguage: z.enum(["en", "vi"]).default("en"),
+  themePreference: z.enum(["light", "dark", "system"]).default("system"),
+});
+
+const aiProviderSchema = z.enum(["openai", "anthropic", "google_gemini", "xai"]);
+const aiTaskSchema = z.enum([
+  "world_generation",
+  "character_generation",
+  "opening_scene",
+  "next_scene",
+  "choice_generation",
+  "custom_action_interpretation",
+  "summarization",
+  "consistency_check",
+  "session_title",
+  "recap",
+]);
+const reasoningEffortSchema = z.enum(["low", "medium", "high"]);
+
+const aiSettingsSchema = z.object({
+  defaultProvider: aiProviderSchema.nullable(),
+  providers: z.array(
+    z.object({
+      provider: aiProviderSchema,
+      isEnabled: z.boolean(),
+      hasApiKey: z.boolean(),
+      apiKeyMasked: z.string().nullable(),
+      baseUrl: z.string().nullable(),
+      defaultModel: z.string().nullable(),
+      reasoningEffort: reasoningEffortSchema.nullable().optional(),
+      taskModels: z.partialRecord(
+        aiTaskSchema,
+        z.object({
+          model: z.string().optional(),
+          reasoningEffort: reasoningEffortSchema.optional(),
+        }),
+      ),
+      headers: z.object({
+        organizationId: z.string().optional(),
+        projectId: z.string().optional(),
+      }),
+      updatedAt: z.string().nullable(),
+    }),
+  ),
+  taskOverrides: z
+    .partialRecord(
+      aiTaskSchema,
+      z.object({
+        provider: aiProviderSchema,
+        model: z.string().optional(),
+        reasoningEffort: reasoningEffortSchema.optional(),
+      }),
+    )
+    ,
+  supportedProviders: z.array(aiProviderSchema),
+  supportedTasks: z.array(aiTaskSchema),
+  providerCatalog: z.record(
+    aiProviderSchema,
+    z.object({
+      label: z.string(),
+      shortLabel: z.string(),
+      description: z.string(),
+      defaultModel: z.string(),
+      models: z.array(
+        z.object({
+          id: z.string(),
+          displayName: z.string(),
+          provider: aiProviderSchema,
+          status: z.enum(["stable", "recommended", "experimental"]),
+          capabilityTags: z.array(
+            z.enum([
+              "storytelling",
+              "reasoning",
+              "summarization",
+              "consistency_check",
+              "fast",
+              "low_cost",
+              "structured_output",
+              "long_context",
+              "dialogue",
+            ]),
+          ),
+          suitableTasks: z.array(aiTaskSchema),
+          notes: z.string(),
+          group: z.enum(["flagship", "balanced", "reasoning", "fast", "economy", "specialized"]),
+          latency: z.enum(["fast", "balanced", "slow"]),
+          costTier: z.enum(["low", "medium", "high"]),
+          isDefault: z.boolean().optional(),
+          isPrimaryStorytellingDefault: z.boolean().optional(),
+          isSupportDefault: z.boolean().optional(),
+        }),
+      ),
+      supportsStructuredJson: z.boolean(),
+      supportsCustomBaseUrl: z.boolean(),
+      supportsReasoningEffort: z.boolean().optional(),
+      wireApi: z.enum(["responses"]).optional(),
+      defaultBaseUrl: z.string().optional(),
+    }),
+  ),
+  fallbackStrategy: z.string(),
+  updatedAt: z.string().nullable(),
 });
 
 const meResponseSchema = z.object({
   user: authUserSchema,
   preferences: preferencesSchema,
+});
+
+const rewriteStoryIdeaSchema = z.object({
+  rewrittenText: z.string(),
+  suggestedGenre: z.string().optional(),
+  suggestedTone: z.string().optional(),
+  dynamicStatsPreview: z
+    .array(
+      z.object({
+        key: z.string(),
+        label: z.string(),
+        description: z.string(),
+      }),
+    )
+    .default([]),
 });
 
 type ApiEnvelope<T> = { data: T; meta: { requestId: string } };
@@ -188,7 +396,11 @@ export type RecapResponse = z.infer<typeof recapResponseSchema>;
 export type AnalyticsOverview = z.infer<typeof analyticsOverviewSchema>;
 export type HistoryResponse = z.infer<typeof historyResponseSchema>;
 export type Preferences = z.infer<typeof preferencesSchema>;
+export type AISettings = z.infer<typeof aiSettingsSchema>;
+export type AIProviderName = z.infer<typeof aiProviderSchema>;
+export type AITaskName = z.infer<typeof aiTaskSchema>;
 export type MeResponse = z.infer<typeof meResponseSchema>;
+export type RewriteStoryIdeaResponse = z.infer<typeof rewriteStoryIdeaSchema>;
 
 export class ApiClientError extends Error {
   constructor(
@@ -209,22 +421,55 @@ export async function apiRequest<T>(
     token?: string | null;
     body?: unknown;
     schema: z.ZodType<T>;
+    timeoutMs?: number;
   },
 ) {
-  const response = await fetch(path, {
-    method: options.method ?? "GET",
-    credentials: "include",
-    headers: {
-      ...(options.body ? { "Content-Type": "application/json" } : {}),
-      ...(options.token && options.token !== "session"
-        ? { Authorization: `Bearer ${options.token}` }
-        : {}),
-    },
-    body: options.body ? JSON.stringify(options.body) : undefined,
-  });
+  const controller = new AbortController();
+  const timeoutId =
+    options.timeoutMs && options.timeoutMs > 0
+      ? setTimeout(() => controller.abort(), options.timeoutMs)
+      : undefined;
+
+  let response: Response;
+  try {
+    response = await fetch(path, {
+      method: options.method ?? "GET",
+      credentials: "include",
+      headers: {
+        ...(options.body ? { "Content-Type": "application/json" } : {}),
+        ...(options.token && options.token !== "session"
+          ? { Authorization: `Bearer ${options.token}` }
+          : {}),
+      },
+      body: options.body ? JSON.stringify(options.body) : undefined,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if ((error as Error).name === "AbortError") {
+      throw new ApiClientError(
+        "The request timed out. Try again or switch to a faster model.",
+        408,
+        "REQUEST_TIMEOUT",
+      );
+    }
+    throw error;
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
 
   const text = await response.text();
-  const payload = text ? (JSON.parse(text) as Record<string, unknown>) : {};
+  let payload: Record<string, unknown> = {};
+  if (text) {
+    try {
+      payload = JSON.parse(text) as Record<string, unknown>;
+    } catch {
+      payload = {
+        error: text,
+      };
+    }
+  }
 
   if (!response.ok) {
     throw new ApiClientError(
@@ -282,6 +527,51 @@ export const api = {
       schema: preferencesSchema,
     });
   },
+  getAISettings(token: string) {
+    return apiRequest("/api/me/ai-settings", {
+      token,
+      schema: aiSettingsSchema,
+    });
+  },
+  updateAISettings(
+    token: string,
+    input: {
+      defaultProvider?: AIProviderName | null;
+      providers?: Array<{
+        provider: AIProviderName;
+        isEnabled?: boolean;
+        apiKey?: string;
+        newApiKey?: string;
+        replaceApiKey?: boolean;
+        clearApiKey?: boolean;
+        baseUrl?: string | null;
+        defaultModel?: string | null;
+        reasoningEffort?: "low" | "medium" | "high" | null;
+        taskModels?: Partial<Record<AITaskName, { model?: string; reasoningEffort?: "low" | "medium" | "high" }>>;
+        headers?: {
+          organizationId?: string | null;
+          projectId?: string | null;
+        };
+      }>;
+      taskOverrides?: Partial<
+        Record<
+          AITaskName,
+          {
+            provider: AIProviderName;
+            model?: string;
+            reasoningEffort?: "low" | "medium" | "high";
+          } | null
+        >
+      >;
+    },
+  ) {
+    return apiRequest("/api/me/ai-settings", {
+      method: "PATCH",
+      token,
+      body: input,
+      schema: aiSettingsSchema,
+    });
+  },
   listSessions(token: string) {
     return apiRequest("/api/story-sessions", {
       token,
@@ -321,6 +611,7 @@ export const api = {
       method: "POST",
       token,
       schema: sessionDetailSchema,
+      timeoutMs: 45_000,
     });
   },
   submitChoice(token: string, id: string, choiceId: string) {
@@ -329,6 +620,7 @@ export const api = {
       token,
       body: { choiceId },
       schema: turnResponseSchema,
+      timeoutMs: 35_000,
     });
   },
   submitCustomAction(token: string, id: string, customInput: string) {
@@ -337,6 +629,7 @@ export const api = {
       token,
       body: { customInput },
       schema: turnResponseSchema,
+      timeoutMs: 35_000,
     });
   },
   saveSession(token: string, id: string) {
@@ -363,6 +656,16 @@ export const api = {
     return apiRequest(`/api/story-sessions/${id}/recap`, {
       token,
       schema: recapResponseSchema,
+      timeoutMs: 20_000,
+    });
+  },
+  rewriteStoryIdea(token: string, text: string) {
+    return apiRequest("/api/story/rewrite", {
+      method: "POST",
+      token,
+      body: { text },
+      schema: rewriteStoryIdeaSchema,
+      timeoutMs: 20_000,
     });
   },
   deleteSession(token: string, id: string) {

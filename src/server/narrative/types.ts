@@ -1,6 +1,9 @@
-import type { StoryGenre } from "@/server/persistence/types/data-models";
+import type { StoryGenre, StoryOutputLanguage } from "@/server/persistence/types/data-models";
 
-export type { StoryGenre } from "@/server/persistence/types/data-models";
+export type {
+  StoryGenre,
+  StoryOutputLanguage,
+} from "@/server/persistence/types/data-models";
 
 export type EnginePreset =
   | "freeform"
@@ -36,6 +39,79 @@ export type ActionIntent =
   | "escape"
   | "observe"
   | "improvise";
+
+export type StoryRiskLevel = "low" | "medium" | "high";
+export type StoryTurnOutcome = "success" | "partial_success" | "failure";
+export type StoryEndingType = "good" | "neutral" | "bad" | null;
+
+export type PlayerStats = {
+  health: number;
+  stamina: number;
+  morale: number;
+  trust: number;
+  suspicion: number;
+  danger: number;
+  stress: number;
+  focus: number;
+};
+
+export type DynamicStatDefinition = {
+  value: number;
+  label: string;
+  description: string;
+  min: number;
+  max: number;
+};
+
+export type DynamicStatMap = Record<string, DynamicStatDefinition>;
+
+export type StoryRelationshipState = {
+  characterId: string;
+  name: string;
+  role: string;
+  affinity: number;
+  trust: number;
+  conflict: number;
+  notes: string;
+  statusFlags: string[];
+};
+
+export type StoryRelationshipMap = Record<string, StoryRelationshipState>;
+
+export type StoryAbility = {
+  id: string;
+  label: string;
+  description: string;
+  tags: string[];
+  charges?: number;
+};
+
+export type StoryWorldMemoryKind =
+  | "fact"
+  | "event"
+  | "rule"
+  | "archive"
+  | "choice"
+  | "relationship"
+  | "system";
+
+export type StoryWorldMemoryEntry = {
+  id: string;
+  text: string;
+  kind: StoryWorldMemoryKind;
+  turnNumber: number;
+  pinned?: boolean;
+};
+
+export type StoryCoreState = {
+  genre: StoryGenre;
+  tone: string;
+  currentArc: string;
+  turn: number;
+  gameOver: boolean;
+  endingType: StoryEndingType;
+  gameRules: string[];
+};
 
 export type InventoryItem = {
   id: string;
@@ -79,6 +155,8 @@ export type EngineActionBlueprint = {
   label: string;
   intent: ActionIntent;
   tags: string[];
+  risk: StoryRiskLevel;
+  hiddenImpact: string;
   source: ActionSource;
   requirements: ActionRequirement[];
   preview?: string;
@@ -102,6 +180,9 @@ export type StoryChoice = {
   label: string;
   intent: ActionIntent;
   tags: string[];
+  risk: StoryRiskLevel;
+  hiddenImpact: string;
+  strategy?: string;
 };
 
 export type StoryScene = {
@@ -110,6 +191,10 @@ export type StoryScene = {
   body: string;
   choices: StoryChoice[];
   rawActionInput?: string;
+  outcome?: StoryTurnOutcome;
+  risk?: StoryRiskLevel;
+  roll?: number;
+  gameOver?: boolean;
 };
 
 export type StoryMemory = {
@@ -155,7 +240,7 @@ export type CanonConflict = {
   reason: string;
 };
 
-export type StatState = Record<StatKey, number>;
+export type StatState = Record<string, number>;
 
 export type CanonicalState = {
   sceneSummary: string;
@@ -177,6 +262,11 @@ export type StoryTurnRecord = {
   choices: StoryChoice[];
   deltaLog: StateDeltaLogEntry[];
   createdAt: string;
+  risk: StoryRiskLevel;
+  outcome: StoryTurnOutcome;
+  roll: number;
+  gameOver: boolean;
+  aiResponse?: StoryTurnAiResponse;
 };
 
 export type StoryState = {
@@ -194,6 +284,18 @@ export type StoryState = {
   canonicalState: CanonicalState;
   availableActions: EngineActionBlueprint[];
   turnHistory: StoryTurnRecord[];
+  storyHistory: string[];
+  coreState: StoryCoreState;
+  dynamicStats: DynamicStatMap;
+  relationships: StoryRelationshipMap;
+  inventory: InventoryItem[];
+  abilities: StoryAbility[];
+  flags: string[];
+  worldMemory: StoryWorldMemoryEntry[];
+  lastChoice: string | null;
+  gameOver: boolean;
+  // Legacy compatibility only. Derived from dynamicStats when possible.
+  playerStats: PlayerStats;
   metadata: {
     branchKey: string;
     turnCount: number;
@@ -201,6 +303,7 @@ export type StoryState = {
     lastUpdatedAt: string;
     deterministic: boolean;
     seed: string;
+    storyOutputLanguage: StoryOutputLanguage;
   };
 };
 
@@ -245,6 +348,21 @@ export type SummaryCandidate = {
   };
 };
 
+export type DynamicStatUpdate = {
+  delta: number;
+  reason: string;
+};
+
+export type StoryRelationshipUpdate = {
+  name?: string;
+  role?: string;
+  affinityDelta: number;
+  trustDelta: number;
+  conflictDelta: number;
+  notes: string;
+  statusFlags?: string[];
+};
+
 export type NarrativeContextPack = {
   storyId: string;
   title: string;
@@ -256,13 +374,17 @@ export type NarrativeContextPack = {
   deterministic: boolean;
   currentSceneSummary: string;
   worldRules: string[];
+  coreState: StoryCoreState;
+  dynamicStats: Array<DynamicStatDefinition & { key: string }>;
+  relationships: StoryRelationshipState[];
   flags: {
     world: string[];
     quest: string[];
+    story: string[];
   };
   stats: Partial<StatState>;
   inventory: Array<Pick<InventoryItem, "id" | "label" | "quantity">>;
-  relationships: Array<Pick<RelationshipState, "characterId" | "label" | "score" | "level">>;
+  abilities: StoryAbility[];
   clues: Array<Pick<ClueRecord, "id" | "label">>;
   knownFacts: Array<Pick<WorldFact, "id" | "value">>;
   memory: {
@@ -290,6 +412,24 @@ export type NarrativeContextPack = {
     stateOwnedByEngine: true;
     outputExpectations: string[];
   };
+  storyHistory: string[];
+  worldMemory: StoryWorldMemoryEntry[];
+  playerStats: PlayerStats;
+  lastChoice?: string | null;
+  gameOver: boolean;
+  pendingTurn?: {
+    risk: StoryRiskLevel;
+    roll: number;
+    outcome: StoryTurnOutcome;
+    baseEffects: Record<string, number>;
+    failureCanEndStory: boolean;
+    relevantStatKeys: string[];
+    riskReason: string;
+  };
+  language: {
+    storyOutputLanguage: StoryOutputLanguage;
+    instruction: string;
+  };
 };
 
 export type StoryGenerationRequest = {
@@ -304,16 +444,28 @@ export type StoryGenerationRequest = {
 };
 
 export type StoryGenerationResult = {
-  scene: {
-    title: string;
-    body: string;
-    choices: Array<{
-      label: string;
-      intent: ActionIntent;
-      tags?: string[];
-    }>;
+  story: string;
+  coreStateUpdates: {
+    currentArc?: string;
+    gameOver: boolean;
+    endingType: StoryEndingType;
+    gameRules?: string[];
   };
-  summaryCandidate: string;
+  dynamicStatUpdates: Record<string, DynamicStatUpdate>;
+  newDynamicStats: DynamicStatMap;
+  relationshipUpdates: Record<string, StoryRelationshipUpdate>;
+  newRelationships?: StoryRelationshipMap;
+  inventoryChanges: string[];
+  abilityChanges: string[];
+  flagChanges: string[];
+  worldMemoryUpdates: string[];
+  choices: Array<{
+    id: string;
+    text: string;
+    risk: StoryRiskLevel;
+    strategy: string;
+    hiddenImpact: string;
+  }>;
 };
 
 export type NarrativeEngineOptions = {
@@ -329,6 +481,7 @@ export type InitializeStoryInput = {
   enginePreset?: EnginePreset;
   seed?: string;
   deterministic?: boolean;
+  storyOutputLanguage?: StoryOutputLanguage;
 };
 
 export type InitialTurnBundle = {
@@ -353,11 +506,37 @@ export type ProcessedTurn = {
   contextPack: NarrativeContextPack;
   deltaLog: StateDeltaLogEntry[];
   memorySummaries?: Array<Record<string, unknown>>;
+  aiResponse?: StoryTurnAiResponse;
   consistency?: {
     repaired: boolean;
     issues: string[];
     recommendations: string[];
     repairAttempts: number;
+    usedFallbackRepair: boolean;
+  };
+};
+
+export type StoryTurnAiResponse = {
+  requestId: string;
+  provider: string;
+  model: string;
+  task: string;
+  promptVersion: string;
+  attempts: number;
+  retryCount: number;
+  providerRequestId?: string;
+  structuredOutput: {
+    status: "validated" | "repaired" | "fallback";
+    repairCount: number;
+    hadValidationRetry: boolean;
+  };
+  consistency?: {
+    checked: boolean;
+    valid: boolean;
+    issues: string[];
+    recommendations: string[];
+    repairAttempts: number;
+    repaired: boolean;
     usedFallbackRepair: boolean;
   };
 };

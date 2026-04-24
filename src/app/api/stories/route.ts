@@ -1,7 +1,11 @@
-import { StoryController } from "@/server/api/controllers/story-controller";
-
-const storyController = new StoryController();
+import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
-  return storyController.create(request);
+  return NextResponse.json(
+    {
+      error: "The legacy /api/stories endpoint has been deprecated. Use /api/story-sessions instead.",
+      code: "LEGACY_STORIES_API_DEPRECATED",
+    },
+    { status: 410 },
+  );
 }

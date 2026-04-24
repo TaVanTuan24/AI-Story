@@ -7,7 +7,12 @@ import {
   Types,
 } from "mongoose";
 
-import { STORY_GENRES } from "@/server/persistence/shared/constants";
+import {
+  APP_THEMES,
+  INTERFACE_LANGUAGES,
+  STORY_GENRES,
+  STORY_OUTPUT_LANGUAGES,
+} from "@/server/persistence/shared/constants";
 
 const userPreferenceSchema = new Schema(
   {
@@ -39,6 +44,21 @@ const userPreferenceSchema = new Schema(
     customPromptHints: {
       type: [String],
       default: [],
+    },
+    interfaceLanguage: {
+      type: String,
+      enum: INTERFACE_LANGUAGES,
+      default: "en",
+    },
+    storyOutputLanguage: {
+      type: String,
+      enum: STORY_OUTPUT_LANGUAGES,
+      default: "en",
+    },
+    themePreference: {
+      type: String,
+      enum: APP_THEMES,
+      default: "system",
     },
   },
   {

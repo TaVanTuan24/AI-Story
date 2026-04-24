@@ -1,8 +1,10 @@
 import { Types } from "mongoose";
 
 import { StoryAiOrchestrator } from "@/server/ai/ai-orchestrator";
+import { getAiTaskRuntimeProfile } from "@/server/ai/task-profile";
 import { assembleContextPack } from "@/server/memory/context-assembler";
 import { getMemoryConfig } from "@/server/memory/config";
+import { logger, serializeError } from "@/server/logging/logger";
 import type {
   CanonConflict,
   CanonFact,
@@ -31,16 +33,29 @@ export class MemoryService {
     state: StoryState;
     normalizedAction?: NarrativeContextPack["normalizedAction"];
     repairContext?: NarrativeContextPack["repairContext"];
+    limits?: Partial<{
+      shortTermTurns: number;
+      rollingSummariesMax: number;
+      canonFactsMax: number;
+      storyHistoryMax: number;
+      worldMemoryMax: number;
+      knownFactsMax: number;
+      relationshipsMax: number;
+    }>;
   }) {
     const config = getMemoryConfig();
+    const shortTermTurns = input.limits?.shortTermTurns ?? config.shortTermTurns;
+    const rollingSummariesMax =
+      input.limits?.rollingSummariesMax ?? config.rollingSummariesMax;
+    const canonFactsMax = input.limits?.canonFactsMax ?? config.canonFactsMax;
     const recentTurns = input.sessionId
-      ? await this.loadRecentTurns(input.sessionId, input.state, config.shortTermTurns)
-      : input.state.turnHistory.slice(-config.shortTermTurns);
+      ? await this.loadRecentTurns(input.sessionId, input.state, shortTermTurns)
+      : input.state.turnHistory.slice(-shortTermTurns);
 
     const rollingSummaries = input.sessionId
       ? await this.summaryRepository.listRollingBySessionId(
           input.sessionId,
-          config.rollingSummariesMax,
+          rollingSummariesMax,
         )
       : input.state.memory.rollingSummaries.map((summary) => ({
           turnNumber: summary.turnNumber,
@@ -73,8 +88,12 @@ export class MemoryService {
       normalizedAction: input.normalizedAction,
       repairContext: input.repairContext,
       consistencyCheckEnabled: config.consistencyCheckEnabled,
-      canonFactsMax: config.canonFactsMax,
-      rollingSummariesMax: config.rollingSummariesMax,
+      canonFactsMax,
+      rollingSummariesMax,
+      storyHistoryMax: input.limits?.storyHistoryMax,
+      worldMemoryMax: input.limits?.worldMemoryMax,
+      knownFactsMax: input.limits?.knownFactsMax,
+      relationshipsMax: input.limits?.relationshipsMax,
     });
   }
 
@@ -83,6 +102,7 @@ export class MemoryService {
     state: StoryState;
     turnLog: StoryTurnRecord;
     summaryCandidate: SummaryCandidate;
+    aiOrchestrator?: StoryAiOrchestrator;
   }): Promise<MemoryCaptureResult> {
     const config = getMemoryConfig();
     const shortTerm = await this.loadRecentTurns(
@@ -147,64 +167,77 @@ export class MemoryService {
         state: nextState,
         recentTurns: shortTerm,
         consistencyCheckEnabled: config.consistencyCheckEnabled,
-        canonFactsMax: config.canonFactsMax,
-        rollingSummariesMax: config.rollingSummariesMax,
+        canonFactsMax: getAiTaskRuntimeProfile("summarizeTurns").context.canonFactsMax,
+        rollingSummariesMax:
+          getAiTaskRuntimeProfile("summarizeTurns").context.rollingSummariesMax,
+        storyHistoryMax: getAiTaskRuntimeProfile("summarizeTurns").context.storyHistoryMax,
+        worldMemoryMax: getAiTaskRuntimeProfile("summarizeTurns").context.worldMemoryMax,
+        knownFactsMax: getAiTaskRuntimeProfile("summarizeTurns").context.knownFactsMax,
+        relationshipsMax: getAiTaskRuntimeProfile("summarizeTurns").context.relationshipsMax,
       });
 
-      const rollingSummary = await this.aiOrchestrator.summarizeTurns({
-        contextPack,
-        recentTurns: rollingTurns.map((turn) => ({
-          turnNumber: turn.turnNumber,
-          sceneTitle: turn.sceneTitle,
-          sceneSummary: turn.sceneSummary,
-          actionText: turn.action.normalizedText,
-        })),
-      });
+      try {
+        const rollingSummary = await (input.aiOrchestrator ?? this.aiOrchestrator).summarizeTurns({
+          contextPack,
+          recentTurns: rollingTurns.map((turn) => ({
+            turnNumber: turn.turnNumber,
+            sceneTitle: turn.sceneTitle,
+            sceneSummary: turn.sceneSummary,
+            actionText: turn.action.normalizedText,
+          })),
+        });
 
-      const fromTurn = rollingTurns[0]?.turnNumber ?? input.turnLog.turnNumber;
-      const toTurn = rollingTurns.at(-1)?.turnNumber ?? input.turnLog.turnNumber;
+        const fromTurn = rollingTurns[0]?.turnNumber ?? input.turnLog.turnNumber;
+        const toTurn = rollingTurns.at(-1)?.turnNumber ?? input.turnLog.turnNumber;
 
-      const mergedRollingCanon = mergeCanonMemory(
-        nextState.memory.canon.facts,
-        rollingSummary.canonUpdate.facts,
-        input.turnLog.turnNumber,
-        nextState.memory.canon.conflicts,
-      );
+        const mergedRollingCanon = mergeCanonMemory(
+          nextState.memory.canon.facts,
+          rollingSummary.canonUpdate.facts,
+          input.turnLog.turnNumber,
+          nextState.memory.canon.conflicts,
+        );
 
-      nextState = {
-        ...nextState,
-        memory: {
-          ...nextState.memory,
-          rollingSummaries: [
-            ...nextState.memory.rollingSummaries,
-            {
-              turnNumber: input.turnLog.turnNumber,
-              fromTurn,
-              toTurn,
-              content: rollingSummary.medium,
+        nextState = {
+          ...nextState,
+          memory: {
+            ...nextState.memory,
+            rollingSummaries: [
+              ...nextState.memory.rollingSummaries,
+              {
+                turnNumber: input.turnLog.turnNumber,
+                fromTurn,
+                toTurn,
+                content: rollingSummary.medium,
+              },
+            ].slice(-config.rollingSummariesMax),
+            canon: {
+              facts: mergedRollingCanon.facts,
+              conflicts: mergedRollingCanon.conflicts,
+              irreversibleEvents: uniqueStrings([
+                ...nextState.memory.canon.irreversibleEvents,
+                ...rollingSummary.canonUpdate.irreversibleEvents,
+              ]),
+              importantFlags: uniqueStrings([
+                ...nextState.memory.canon.importantFlags,
+                ...rollingSummary.canonUpdate.importantFlags,
+              ]),
             },
-          ].slice(-config.rollingSummariesMax),
-          canon: {
-            facts: mergedRollingCanon.facts,
-            conflicts: mergedRollingCanon.conflicts,
-            irreversibleEvents: uniqueStrings([
-              ...nextState.memory.canon.irreversibleEvents,
-              ...rollingSummary.canonUpdate.irreversibleEvents,
-            ]),
-            importantFlags: uniqueStrings([
-              ...nextState.memory.canon.importantFlags,
-              ...rollingSummary.canonUpdate.importantFlags,
-            ]),
           },
-        },
-      };
+        };
 
-      summaries.push(
-        createSummaryRecord(input.sessionId, input.turnLog.turnNumber, "rolling", rollingSummary.medium, {
-          sourceTurnRange: { from: fromTurn, to: toTurn },
-          payload: rollingSummary.canonUpdate,
-        }),
-      );
+        summaries.push(
+          createSummaryRecord(input.sessionId, input.turnLog.turnNumber, "rolling", rollingSummary.medium, {
+            sourceTurnRange: { from: fromTurn, to: toTurn },
+            payload: rollingSummary.canonUpdate,
+          }),
+        );
+      } catch (error) {
+        logger.warn("memory.rolling_summary_failed", {
+          sessionId: input.sessionId,
+          turnNumber: input.turnLog.turnNumber,
+          error: serializeError(error),
+        });
+      }
     }
 
     return {
@@ -242,9 +275,15 @@ export class MemoryService {
         label: String(choice.label),
         intent: inferIntentFromLabel(String(choice.intent)),
         tags: [],
+        risk: "medium" as const,
+        hiddenImpact: "Story pressure shifts according to the current situation.",
       })),
       deltaLog: [],
       createdAt: String(turn.createdAt ?? new Date().toISOString()),
+      risk: "medium" as const,
+      outcome: "partial_success" as const,
+      roll: 50,
+      gameOver: Boolean(turn.gameOver),
     }));
 
     return [...mapped, ...(currentTurn ? [currentTurn] : [])].slice(-limit);

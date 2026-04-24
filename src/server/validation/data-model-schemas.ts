@@ -5,14 +5,25 @@ import {
   ANALYTICS_EVENT_TYPES,
   API_PROVIDERS,
   API_USAGE_STATUSES,
+  INTERFACE_LANGUAGES,
   RELATIONSHIP_BUCKETS,
   SESSION_STATUSES,
   SNAPSHOT_KINDS,
   STORY_GENRES,
+  STORY_OUTPUT_LANGUAGES,
+  AI_REASONING_EFFORTS,
+  APP_THEMES,
   SUMMARY_KINDS,
+  USER_AI_PROVIDERS,
+  USER_AI_TASKS,
 } from "@/server/persistence/shared/constants";
 
 const objectIdSchema = z.string().regex(/^[a-fA-F0-9]{24}$/, "Invalid ObjectId.");
+const aiModelNameSchema = z
+  .string()
+  .min(1)
+  .max(160)
+  .regex(/^[A-Za-z0-9._:-]+$/, "Invalid AI model name.");
 
 export const storyGenreSchema = z.enum(STORY_GENRES);
 export const sessionStatusSchema = z.enum(SESSION_STATUSES);
@@ -23,6 +34,12 @@ export const summaryKindSchema = z.enum(SUMMARY_KINDS);
 export const analyticsEventTypeSchema = z.enum(ANALYTICS_EVENT_TYPES);
 export const apiProviderSchema = z.enum(API_PROVIDERS);
 export const apiUsageStatusSchema = z.enum(API_USAGE_STATUSES);
+export const userAiProviderSchema = z.enum(USER_AI_PROVIDERS);
+export const userAiTaskSchema = z.enum(USER_AI_TASKS);
+export const interfaceLanguageSchema = z.enum(INTERFACE_LANGUAGES);
+export const storyOutputLanguageSchema = z.enum(STORY_OUTPUT_LANGUAGES);
+export const aiReasoningEffortSchema = z.enum(AI_REASONING_EFFORTS);
+export const appThemeSchema = z.enum(APP_THEMES);
 
 export const presentedChoiceSchema = z.object({
   id: z.string().min(1).max(120),
@@ -120,16 +137,41 @@ export const turnLogModelSchema = z
     sceneTitle: z.string().min(1).max(240).optional(),
     sceneText: z.string().min(1).max(30_000),
     sceneSummary: z.string().min(1).max(4_000),
-    presentedChoices: z.array(presentedChoiceSchema).min(1).max(8),
+    presentedChoices: z.array(presentedChoiceSchema).max(8),
     chosenAction: z.string().min(1).max(2_000),
     actionSource: actionSourceSchema,
     selectedChoiceId: z.string().min(1).max(120).optional(),
     rawActionInput: z.string().min(1).max(2_000).optional(),
+    gameOver: z.boolean().optional(),
     snapshotId: objectIdSchema.optional(),
     aiResponseRef: z
       .object({
         provider: apiProviderSchema,
         requestId: z.string().min(1).max(180).optional(),
+        model: aiModelNameSchema.optional(),
+        task: z.string().min(1).max(160).optional(),
+        promptVersion: z.string().min(1).max(16).optional(),
+        attempts: z.number().int().min(1).optional(),
+        retryCount: z.number().int().min(0).optional(),
+        providerRequestId: z.string().min(1).max(180).optional(),
+        structuredOutput: z
+          .object({
+            status: z.enum(["validated", "repaired", "fallback"]),
+            repairCount: z.number().int().min(0),
+            hadValidationRetry: z.boolean(),
+          })
+          .optional(),
+        consistency: z
+          .object({
+            checked: z.boolean(),
+            valid: z.boolean(),
+            issues: z.array(z.string().min(1).max(500)).max(12),
+            recommendations: z.array(z.string().min(1).max(500)).max(12),
+            repairAttempts: z.number().int().min(0).max(3),
+            repaired: z.boolean(),
+            usedFallbackRepair: z.boolean(),
+          })
+          .optional(),
         usageLogId: objectIdSchema.optional(),
         responseObjectPath: z.string().min(1).max(400).optional(),
       })
@@ -149,6 +191,14 @@ export const turnLogModelSchema = z
         code: z.ZodIssueCode.custom,
         message: "rawActionInput is required for custom actions.",
         path: ["rawActionInput"],
+      });
+    }
+
+    if (!value.gameOver && value.presentedChoices.length < 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "At least one presented choice is required unless the turn ended the story.",
+        path: ["presentedChoices"],
       });
     }
   });
@@ -180,6 +230,51 @@ export const userPreferenceModelSchema = z.object({
   preferredTones: z.array(z.string().min(1).max(120)).default([]),
   avoidedThemes: z.array(z.string().min(1).max(160)).default([]),
   customPromptHints: z.array(z.string().min(1).max(500)).default([]),
+  interfaceLanguage: interfaceLanguageSchema.default("en"),
+  storyOutputLanguage: storyOutputLanguageSchema.default("en"),
+  themePreference: appThemeSchema.default("system"),
+});
+
+export const userAiProviderSettingsModelSchema = z.object({
+  provider: userAiProviderSchema,
+  isEnabled: z.boolean().default(false),
+  hasApiKey: z.boolean().default(false),
+  encryptedApiKey: z.string().min(1).max(6_000).optional(),
+  apiKeyMasked: z.string().min(1).max(80).optional(),
+  baseUrl: z.url().max(500).optional(),
+  defaultModel: aiModelNameSchema.optional(),
+  reasoningEffort: aiReasoningEffortSchema.optional(),
+  taskModels: z
+    .partialRecord(
+      userAiTaskSchema,
+      z.object({
+        model: aiModelNameSchema,
+        reasoningEffort: aiReasoningEffortSchema.optional(),
+      }),
+    )
+    .default({}),
+  headers: z
+    .object({
+      organizationId: z.string().min(1).max(200).optional(),
+      projectId: z.string().min(1).max(200).optional(),
+    })
+    .default({}),
+});
+
+export const userAiSettingsModelSchema = z.object({
+  userId: objectIdSchema,
+  defaultProvider: userAiProviderSchema.optional(),
+  providers: z.array(userAiProviderSettingsModelSchema).default([]),
+  taskOverrides: z
+    .partialRecord(
+      userAiTaskSchema,
+      z.object({
+        provider: userAiProviderSchema,
+        model: aiModelNameSchema.optional(),
+        reasoningEffort: aiReasoningEffortSchema.optional(),
+      }),
+    )
+    .default({}),
 });
 
 export const analyticsEventModelSchema = z.object({
@@ -194,7 +289,7 @@ export const apiUsageLogModelSchema = z.object({
   userId: objectIdSchema.optional(),
   storySessionId: objectIdSchema.optional(),
   provider: apiProviderSchema,
-  model: z.string().min(1).max(160),
+  model: aiModelNameSchema,
   operation: z.string().min(1).max(160),
   status: apiUsageStatusSchema,
   latencyMs: z.number().int().min(0),
@@ -217,5 +312,6 @@ export type SessionStateSnapshotModelInput = z.infer<
 export type TurnLogModelInput = z.infer<typeof turnLogModelSchema>;
 export type StorySummaryModelInput = z.infer<typeof storySummaryModelSchema>;
 export type UserPreferenceModelInput = z.infer<typeof userPreferenceModelSchema>;
+export type UserAISettingsModelInput = z.infer<typeof userAiSettingsModelSchema>;
 export type AnalyticsEventModelInput = z.infer<typeof analyticsEventModelSchema>;
 export type APIUsageLogModelInput = z.infer<typeof apiUsageLogModelSchema>;

@@ -1,8 +1,11 @@
 import { Types } from "mongoose";
 
 import { connectToDatabase } from "@/lib/db/mongoose";
+import { ensureStoryStateDefaults } from "@/server/narrative/state-normalizer";
 import type { StoryState } from "@/server/narrative/types";
 import { StoryModel } from "@/server/persistence/models/story-model";
+
+export type StoryDocumentState = StoryState & { id: string };
 
 export class StoryRepository {
   async create(story: StoryState) {
@@ -45,10 +48,10 @@ export class StoryRepository {
   }
 
   private toState(document: Record<string, unknown>) {
-    return {
+    return ensureStoryStateDefaults({
       id: String(document._id),
       ...document,
-    } as StoryState & { id: string };
+    } as StoryDocumentState);
   }
 
   private toPersistenceShape(story: StoryState) {
@@ -67,6 +70,17 @@ export class StoryRepository {
       canonicalState: story.canonicalState,
       availableActions: story.availableActions,
       turnHistory: story.turnHistory,
+      storyHistory: story.storyHistory,
+      coreState: story.coreState,
+      dynamicStats: story.dynamicStats,
+      relationships: story.relationships,
+      playerStats: story.playerStats,
+      inventory: story.inventory,
+      abilities: story.abilities,
+      flags: story.flags,
+      worldMemory: story.worldMemory,
+      lastChoice: story.lastChoice,
+      gameOver: story.gameOver,
       metadata: story.metadata,
     };
   }

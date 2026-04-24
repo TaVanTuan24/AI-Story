@@ -3,23 +3,30 @@ import Anthropic from "@anthropic-ai/sdk";
 import { env } from "@/lib/config/env";
 import { ApiError } from "@/server/api/errors/api-error";
 import { BaseAiProvider } from "@/server/ai/providers/base-provider";
-import type { AiInvocationResult, AiProvider, AiStructuredRequest } from "@/server/ai/types";
+import type { AiInvocationResult, AiProvider, AiRoute, AiStructuredRequest } from "@/server/ai/types";
 
 export class AnthropicProvider extends BaseAiProvider implements AiProvider {
   readonly name = "anthropic";
   readonly defaultModel = env.ANTHROPIC_MODEL;
-  private readonly client = env.ANTHROPIC_API_KEY
-    ? new Anthropic({
-        apiKey: env.ANTHROPIC_API_KEY,
-      })
-    : null;
+  private readonly client: Anthropic | null;
+
+  constructor(route?: AiRoute) {
+    super(route);
+    const apiKey = route?.credentials?.apiKey ?? env.ANTHROPIC_API_KEY;
+    this.client = apiKey
+      ? new Anthropic({
+          apiKey,
+          baseURL: route?.credentials?.baseUrl,
+        })
+      : null;
+  }
 
   async invokeStructured<TResult>(
     request: AiStructuredRequest<unknown>,
   ): Promise<AiInvocationResult<TResult>> {
     if (!this.client) {
       throw new ApiError(
-        "AI provider is not configured. Set ANTHROPIC_API_KEY or switch AI_PROVIDER to bootstrap.",
+        "Anthropic is not configured yet. Add an Anthropic API key in Profile > AI Settings, or set ANTHROPIC_API_KEY for app-level fallback.",
         503,
         "AI_PROVIDER_NOT_CONFIGURED",
       );
@@ -29,7 +36,7 @@ export class AnthropicProvider extends BaseAiProvider implements AiProvider {
       // Anthropic structured JSON support may need provider-specific tightening later.
       const response = await this.client!.messages.create({
         model,
-        max_tokens: 1_500,
+        max_tokens: 4_000,
         system: request.systemPrompt,
         messages: [{ role: "user", content: request.userPrompt }],
       });
@@ -52,6 +59,6 @@ export class AnthropicProvider extends BaseAiProvider implements AiProvider {
   }
 
   protected resolveModel() {
-    return env.ANTHROPIC_MODEL || this.defaultModel;
+    return this.route?.model || env.ANTHROPIC_MODEL || this.defaultModel;
   }
 }

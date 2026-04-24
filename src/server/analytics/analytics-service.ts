@@ -1,3 +1,7 @@
+import {
+  estimateModelUsageCostUsd,
+  type AIProviderCatalogName,
+} from "@/lib/ai/provider-catalog";
 import { logger, serializeError } from "@/server/logging/logger";
 import { AnalyticsEventRepository } from "@/server/persistence/repositories/analytics-event-repository";
 import type { AnalyticsEventType } from "@/server/persistence/types/data-models";
@@ -39,7 +43,19 @@ export class AnalyticsService implements AnalyticsTracker {
 
   trackAiUsage: AiUsageHook = async (entry) => {
     try {
+      const provider = normalizeCatalogProvider(entry.provider);
+      const estimatedCostUsd = provider
+        ? estimateModelUsageCostUsd(provider, entry.model, {
+            inputTokens: entry.usage?.inputTokens,
+            outputTokens: entry.usage?.outputTokens,
+          })
+        : undefined;
+      const metadata = (entry.metadata ?? {}) as Record<string, unknown>;
+
       await this.repository.createApiUsage({
+        userId: typeof metadata.userId === "string" ? metadata.userId : undefined,
+        storySessionId:
+          typeof metadata.storySessionId === "string" ? metadata.storySessionId : undefined,
         provider: entry.provider,
         model: entry.model,
         operation: entry.task,
@@ -48,10 +64,12 @@ export class AnalyticsService implements AnalyticsTracker {
         promptTokens: entry.usage?.inputTokens,
         completionTokens: entry.usage?.outputTokens,
         totalTokens: entry.usage?.totalTokens,
+        estimatedCostUsd,
         requestId: entry.requestId,
         metadata: {
           attempts: entry.attempts,
           promptVersion: entry.metadata?.promptVersion,
+          routeSource: entry.metadata?.routeSource,
         },
       });
 
@@ -77,6 +95,7 @@ export class AnalyticsService implements AnalyticsTracker {
             promptTokens: entry.usage.inputTokens ?? 0,
             completionTokens: entry.usage.outputTokens ?? 0,
             totalTokens: entry.usage.totalTokens,
+            estimatedCostUsd,
           },
         });
       }
@@ -90,6 +109,15 @@ export class AnalyticsService implements AnalyticsTracker {
   getOverview(days?: number) {
     return this.repository.getOverview(days);
   }
+}
+
+function normalizeCatalogProvider(provider: string): AIProviderCatalogName | null {
+  return provider === "openai" ||
+    provider === "anthropic" ||
+    provider === "google_gemini" ||
+    provider === "xai"
+    ? provider
+    : null;
 }
 
 function sanitizeProperties(properties: Record<string, unknown>) {

@@ -7,7 +7,9 @@ import type {
 import {
   buildAntiDriftInstructions,
   buildJsonOnlyInstructions,
+  localizedText,
   buildPromptHeader,
+  resolvePromptLanguage,
   buildSchemaDisciplineInstructions,
   PROMPT_VERSION,
 } from "@/server/ai/prompts/shared";
@@ -42,24 +44,42 @@ export const turnSummarizerPrompt: AiPromptDefinition<
       "- canon: durable factual compression with no invented details.",
       "- canonUpdate: structured facts, important flags, and irreversible events for canon memory.",
     ].join("\n"),
-  fallback: (input) => ({
-    short: `Recent turns advanced the story through ${input.recentTurns.length} key beats.`,
-    medium: input.recentTurns.map((turn) => `${turn.turnNumber}: ${turn.sceneSummary}`).join(" "),
-    canon: input.recentTurns
-      .map((turn) => `Turn ${turn.turnNumber} followed "${turn.actionText}" and produced "${turn.sceneSummary}".`)
-      .join(" "),
-    canonUpdate: {
-      facts: input.recentTurns.map((turn) => ({
-        id: `turn-${turn.turnNumber}-summary`,
-        category: "event" as const,
-        subject: turn.sceneTitle,
-        value: turn.sceneSummary,
-        immutable: true,
-      })),
-      irreversibleEvents: [],
-      importantFlags: [],
-    },
-  }),
+  fallback: (input) => {
+    const language = resolvePromptLanguage(input);
+    return {
+      short: localizedText(language, {
+        en: `Recent turns advanced the story through ${input.recentTurns.length} key beats.`,
+        vi: `Nhung luot gan day day cau chuyen tien len qua ${input.recentTurns.length} nhip quan trong.`,
+      }),
+      medium: input.recentTurns
+        .map((turn) =>
+          localizedText(language, {
+            en: `${turn.turnNumber}: ${turn.sceneSummary}`,
+            vi: `Luot ${turn.turnNumber}: ${turn.sceneSummary}`,
+          }),
+        )
+        .join(" "),
+      canon: input.recentTurns
+        .map((turn) =>
+          localizedText(language, {
+            en: `Turn ${turn.turnNumber} followed "${turn.actionText}" and produced "${turn.sceneSummary}".`,
+            vi: `Luot ${turn.turnNumber} dien ra sau hanh dong "${turn.actionText}" va dan den "${turn.sceneSummary}".`,
+          }),
+        )
+        .join(" "),
+      canonUpdate: {
+        facts: input.recentTurns.map((turn) => ({
+          id: `turn-${turn.turnNumber}-summary`,
+          category: "event" as const,
+          subject: turn.sceneTitle,
+          value: turn.sceneSummary,
+          immutable: true,
+        })),
+        irreversibleEvents: [],
+        importantFlags: [],
+      },
+    };
+  },
   expectedOutputJsonSchema: JSON_SCHEMAS.summarizeTurns.schema,
   notes: {
     tokenBudget:

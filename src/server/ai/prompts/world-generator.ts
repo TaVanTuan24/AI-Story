@@ -7,7 +7,9 @@ import type {
 import {
   buildAntiDriftInstructions,
   buildJsonOnlyInstructions,
+  localizedText,
   buildPromptHeader,
+  resolvePromptLanguage,
   buildSchemaDisciplineInstructions,
   PROMPT_VERSION,
 } from "@/server/ai/prompts/shared";
@@ -44,19 +46,40 @@ export const worldGeneratorPrompt: AiPromptDefinition<
       "- World rules should guide future scenes and continuity checks.",
       "- Keep content warnings minimal and only include likely concerns.",
     ].join("\n"),
-  fallback: (input) => ({
-    setting: `${input.genre} setting built around ${input.premise}`,
-    worldRules: [
-      "Continuity must preserve established facts.",
-      "Actions should create meaningful consequences.",
-      "Information should unfold through pressure and discovery.",
-    ],
-    playerRole: "Protagonist",
-    conflict: input.premise,
-    startingLocation: "The opening threshold",
-    seedHint: `${input.genre}-${input.enginePreset}`,
-    contentWarnings: [],
-  }),
+  fallback: (input) => {
+    const language = resolvePromptLanguage(input);
+    return {
+      setting: localizedText(language, {
+        en: `${input.genre} setting built around ${input.premise}`,
+        vi: `Boi canh ${input.genre} duoc xay quanh: ${input.premise}`,
+      }),
+      worldRules: [
+        localizedText(language, {
+          en: "Continuity must preserve established facts.",
+          vi: "Tinh lien tuc phai giu nguyen cac su that da duoc thiet lap.",
+        }),
+        localizedText(language, {
+          en: "Actions should create meaningful consequences.",
+          vi: "Hanh dong can tao ra hau qua co y nghia.",
+        }),
+        localizedText(language, {
+          en: "Information should unfold through pressure and discovery.",
+          vi: "Thong tin nen duoc mo ra qua suc ep va su kham pha.",
+        }),
+      ],
+      playerRole: localizedText(language, {
+        en: "Protagonist",
+        vi: "Nhan vat chinh",
+      }),
+      conflict: input.premise,
+      startingLocation: localizedText(language, {
+        en: "The opening threshold",
+        vi: "Nguong cua mo dau",
+      }),
+      seedHint: `${input.genre}-${input.enginePreset}`,
+      contentWarnings: [],
+    };
+  },
   expectedOutputJsonSchema: JSON_SCHEMAS.generateWorld.schema,
   notes: {
     tokenBudget:

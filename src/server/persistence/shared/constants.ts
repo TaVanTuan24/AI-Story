@@ -2,11 +2,16 @@ export const STORY_GENRES = [
   "fantasy",
   "mystery",
   "romance",
+  "xianxia",
   "sci-fi",
   "horror",
+  "historical",
   "politics",
   "school-life",
+  "slice-of-life",
   "survival",
+  "adventure",
+  "drama",
   "custom",
 ] as const;
 
@@ -45,6 +50,41 @@ export const ANALYTICS_EVENT_TYPES = [
   "api_error",
 ] as const;
 
-export const API_PROVIDERS = ["bootstrap", "openai", "anthropic", "internal"] as const;
+export const API_PROVIDERS = [
+  "bootstrap",
+  "openai",
+  "anthropic",
+  "google_gemini",
+  "xai",
+  "internal",
+] as const;
 
 export const API_USAGE_STATUSES = ["success", "error", "rate_limited", "timeout"] as const;
+
+export const USER_AI_PROVIDERS = [
+  "openai",
+  "anthropic",
+  "google_gemini",
+  "xai",
+] as const;
+
+export const USER_AI_TASKS = [
+  "world_generation",
+  "character_generation",
+  "opening_scene",
+  "next_scene",
+  "choice_generation",
+  "custom_action_interpretation",
+  "summarization",
+  "consistency_check",
+  "session_title",
+  "recap",
+] as const;
+
+export const INTERFACE_LANGUAGES = ["en", "vi"] as const;
+
+export const STORY_OUTPUT_LANGUAGES = ["en", "vi"] as const;
+
+export const AI_REASONING_EFFORTS = ["low", "medium", "high"] as const;
+
+export const APP_THEMES = ["light", "dark", "system"] as const;

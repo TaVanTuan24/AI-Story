@@ -16,8 +16,14 @@ const redactedKeys = [
   "password",
   "passwordHash",
   "authSecret",
+  "secret",
+  "apiKey",
+  "encryptedApiKey",
+  "apiKeyMasked",
   "openaiApiKey",
   "anthropicApiKey",
+  "googleGeminiApiKey",
+  "xaiApiKey",
 ];
 
 export const logger = {

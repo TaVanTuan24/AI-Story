@@ -1,4 +1,5 @@
 import type { NarrativeContextPack, StoryState } from "@/server/narrative/types";
+import { ensureStoryStateDefaults } from "@/server/narrative/state-normalizer";
 
 export function createContextPack(
   storyId: string,
@@ -8,54 +9,58 @@ export function createContextPack(
     repairContext?: NarrativeContextPack["repairContext"];
   },
 ): NarrativeContextPack {
+  const normalizedState = ensureStoryStateDefaults(state);
+
   return {
     storyId,
-    title: state.title,
-    genre: state.genre,
-    tone: state.tone,
-    premise: state.premise,
-    enginePreset: state.enginePreset,
-    currentTurn: state.metadata.turnCount,
-    deterministic: state.metadata.deterministic,
-    currentSceneSummary: state.canonicalState.sceneSummary,
-    worldRules: state.worldRules,
+    title: normalizedState.title,
+    genre: normalizedState.genre,
+    tone: normalizedState.tone,
+    premise: normalizedState.premise,
+    enginePreset: normalizedState.enginePreset,
+    currentTurn: normalizedState.metadata.turnCount,
+    deterministic: normalizedState.metadata.deterministic,
+    currentSceneSummary: normalizedState.canonicalState.sceneSummary,
+    worldRules: normalizedState.worldRules,
+    coreState: normalizedState.coreState,
+    dynamicStats: Object.entries(normalizedState.dynamicStats).map(([key, definition]) => ({
+      key,
+      ...definition,
+    })),
+    relationships: Object.values(normalizedState.relationships),
     flags: {
-      world: state.canonicalState.worldFlags,
-      quest: state.canonicalState.questFlags,
+      world: normalizedState.canonicalState.worldFlags,
+      quest: normalizedState.canonicalState.questFlags,
+      story: normalizedState.flags,
     },
-    stats: state.canonicalState.stats,
-    inventory: state.canonicalState.inventory.map((item) => ({
+    stats: normalizedState.canonicalState.stats,
+    inventory: normalizedState.inventory.map((item) => ({
       id: item.id,
       label: item.label,
       quantity: item.quantity,
     })),
-    relationships: state.canonicalState.relationships.map((relationship) => ({
-      characterId: relationship.characterId,
-      label: relationship.label,
-      score: relationship.score,
-      level: relationship.level,
-    })),
-    clues: state.canonicalState.clues.map((clue) => ({
+    abilities: normalizedState.abilities,
+    clues: normalizedState.canonicalState.clues.map((clue) => ({
       id: clue.id,
       label: clue.label,
     })),
-    knownFacts: state.canonicalState.worldFacts.map((fact) => ({
+    knownFacts: normalizedState.canonicalState.worldFacts.map((fact) => ({
       id: fact.id,
       value: fact.value,
     })),
     memory: {
-      shortTerm: state.memory.shortTerm,
-      rollingSummaries: state.memory.rollingSummaries,
+      shortTerm: normalizedState.memory.shortTerm,
+      rollingSummaries: normalizedState.memory.rollingSummaries,
       canon: {
-        facts: state.memory.canon.facts.map((fact) => ({
+        facts: normalizedState.memory.canon.facts.map((fact) => ({
           id: fact.id,
           category: fact.category,
           subject: fact.subject,
           value: fact.value,
           immutable: fact.immutable,
         })),
-        irreversibleEvents: state.memory.canon.irreversibleEvents,
-        importantFlags: state.memory.canon.importantFlags,
+        irreversibleEvents: normalizedState.memory.canon.irreversibleEvents,
+        importantFlags: normalizedState.memory.canon.importantFlags,
       },
     },
     normalizedAction,
@@ -82,6 +87,18 @@ export function createContextPack(
         "Treat short-term memory, rolling summaries, and canon memory as authoritative continuity inputs.",
         "Keep the options actionable and distinct.",
       ],
+    },
+    storyHistory: normalizedState.storyHistory,
+    worldMemory: normalizedState.worldMemory,
+    playerStats: normalizedState.playerStats,
+    lastChoice: normalizedState.lastChoice,
+    gameOver: normalizedState.gameOver,
+    language: {
+      storyOutputLanguage: normalizedState.metadata.storyOutputLanguage ?? "en",
+      instruction:
+        normalizedState.metadata.storyOutputLanguage === "vi"
+          ? "Write all player-facing generated story text entirely in Vietnamese. Do not mix languages. Keep internal JSON keys unchanged."
+          : "Write all player-facing generated story text entirely in English. Do not mix languages. Keep internal JSON keys unchanged.",
     },
   };
 }

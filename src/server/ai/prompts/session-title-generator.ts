@@ -7,7 +7,9 @@ import type {
 import {
   buildAntiDriftInstructions,
   buildJsonOnlyInstructions,
+  localizedText,
   buildPromptHeader,
+  resolvePromptLanguage,
   buildSchemaDisciplineInstructions,
   PROMPT_VERSION,
 } from "@/server/ai/prompts/shared";
@@ -41,8 +43,14 @@ export const sessionTitleGeneratorPrompt: AiPromptDefinition<
       "- Include a brief rationale.",
     ].join("\n"),
   fallback: (input) => ({
-    title: "Untitled Session",
-    rationale: `Fallback title for a ${input.genre} story.`,
+    title: localizedText(resolvePromptLanguage(input), {
+      en: "Untitled Session",
+      vi: "Phien choi chua dat ten",
+    }),
+    rationale: localizedText(resolvePromptLanguage(input), {
+      en: `Fallback title for a ${input.genre} story.`,
+      vi: `Tieu de du phong cho mot cau chuyen the loai ${input.genre}.`,
+    }),
   }),
   expectedOutputJsonSchema: JSON_SCHEMAS.generateSessionTitle.schema,
   notes: {

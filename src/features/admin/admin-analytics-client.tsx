@@ -44,7 +44,7 @@ export function AdminAnalyticsClient() {
     return (
       <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
         {Array.from({ length: 8 }).map((_, index) => (
-          <Card key={index} className="h-40 animate-shimmer">
+          <Card key={index} className="animate-shimmer h-40">
             <div />
           </Card>
         ))}
@@ -57,7 +57,9 @@ export function AdminAnalyticsClient() {
       <EmptyState
         eyebrow="Admin Analytics"
         title="Analytics could not be loaded"
-        description={error ?? "Only configured admin accounts can access this page."}
+        description={
+          error ?? "Only configured admin accounts can access this page."
+        }
       />
     );
   }
@@ -65,7 +67,10 @@ export function AdminAnalyticsClient() {
   const eventMap = Object.fromEntries(
     overview.eventCounts.map((entry) => [entry.eventType, entry.count]),
   );
-  const totalTokens = overview.aiUsage.reduce((sum, row) => sum + row.totalTokens, 0);
+  const totalTokens = overview.aiUsage.reduce(
+    (sum, row) => sum + row.totalTokens,
+    0,
+  );
   const totalFailures =
     Number(eventMap.completion_failed ?? 0) +
     overview.aiUsage.reduce((sum, row) => sum + row.failures, 0);
@@ -78,23 +83,33 @@ export function AdminAnalyticsClient() {
           <Badge>Internal</Badge>
           <Badge>{overview.windowDays} day window</Badge>
         </div>
-        <p className="mt-6 text-xs font-semibold uppercase tracking-[0.35em] text-[color:var(--accent)]">
+        <p className="eyebrow-label mt-6 text-xs font-semibold uppercase">
           Product Analytics
         </p>
-        <h1 className="mt-4 max-w-3xl text-4xl font-semibold leading-tight text-balance sm:text-5xl">
+        <h1 className="mt-4 max-w-3xl text-4xl leading-tight font-semibold text-balance sm:text-5xl">
           Story engagement, generation health, and provider usage.
         </h1>
-        <p className="mt-4 max-w-2xl text-sm leading-7 text-black/62 sm:text-base">
-          This internal view uses aggregate operational metrics only. It avoids raw prompts,
-          custom action text, email addresses, and scene content.
+        <p className="text-ui-muted mt-4 max-w-2xl text-sm leading-7 sm:text-base">
+          This internal view uses aggregate operational metrics only. It avoids
+          raw prompts, custom action text, email addresses, and scene content.
         </p>
       </Card>
 
       <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Sessions Created" value={eventMap.session_created ?? 0} />
-        <MetricCard label="Sessions Resumed" value={eventMap.session_resumed ?? 0} />
+        <MetricCard
+          label="Sessions Created"
+          value={eventMap.session_created ?? 0}
+        />
+        <MetricCard
+          label="Sessions Resumed"
+          value={eventMap.session_resumed ?? 0}
+        />
         <MetricCard label="Turns Played" value={eventMap.turn_played ?? 0} />
-        <MetricCard label="Completion Failures" value={totalFailures} tone="danger" />
+        <MetricCard
+          label="Completion Failures"
+          value={totalFailures}
+          tone="danger"
+        />
         <MetricCard
           label="Avg Session Length"
           value={`${overview.sessions.averageSessionLengthTurns} turns`}
@@ -112,7 +127,10 @@ export function AdminAnalyticsClient() {
 
       <section className="grid gap-5 xl:grid-cols-[1fr_1fr]">
         <Card className="p-6">
-          <SectionTitle title="Action Mix" description="Button choices vs custom actions." />
+          <SectionTitle
+            title="Action Mix"
+            description="Button choices vs custom actions."
+          />
           <div className="mt-5 space-y-4">
             <BarRow
               label="Button choices"
@@ -128,14 +146,20 @@ export function AdminAnalyticsClient() {
         </Card>
 
         <Card className="p-6">
-          <SectionTitle title="Abandon Buckets" description="Where sessions currently stop." />
+          <SectionTitle
+            title="Abandon Buckets"
+            description="Where sessions currently stop."
+          />
           <div className="mt-5 space-y-3">
             {overview.abandonBuckets.map((bucket) => (
               <BarRow
                 key={bucket.bucket}
                 label={bucket.bucket}
                 value={bucket.count}
-                percent={percentOf(bucket.count, overview.sessions.totalSessions)}
+                percent={percentOf(
+                  bucket.count,
+                  overview.sessions.totalSessions,
+                )}
               />
             ))}
           </div>
@@ -144,21 +168,30 @@ export function AdminAnalyticsClient() {
 
       <section className="grid gap-5 xl:grid-cols-[1fr_1fr]">
         <Card className="p-6">
-          <SectionTitle title="Top Genres" description="Most selected session genres." />
+          <SectionTitle
+            title="Top Genres"
+            description="Most selected session genres."
+          />
           <RankedList rows={overview.topGenres} />
         </Card>
 
         <Card className="p-6">
-          <SectionTitle title="Top Tones" description="Most selected tone phrases." />
+          <SectionTitle
+            title="Top Tones"
+            description="Most selected tone phrases."
+          />
           <RankedList rows={overview.topTones} />
         </Card>
       </section>
 
       <Card className="p-6">
-        <SectionTitle title="AI Provider Usage" description="Requests, latency, failures, and token volume." />
+        <SectionTitle
+          title="AI Provider Usage"
+          description="Requests, latency, failures, and token volume."
+        />
         <div className="mt-5 overflow-x-auto">
           <table className="w-full min-w-[720px] text-left text-sm">
-            <thead className="text-xs uppercase tracking-[0.22em] text-black/45">
+            <thead className="text-ui-faint text-xs tracking-[0.22em] uppercase">
               <tr>
                 <th className="py-3">Provider</th>
                 <th className="py-3">Model</th>
@@ -173,7 +206,7 @@ export function AdminAnalyticsClient() {
                 overview.aiUsage.map((row) => (
                   <tr key={`${row.provider}-${row.model}`}>
                     <td className="py-4 font-semibold">{row.provider}</td>
-                    <td className="py-4 text-black/62">{row.model}</td>
+                    <td className="text-ui-muted py-4">{row.model}</td>
                     <td className="py-4">{formatNumber(row.requests)}</td>
                     <td className="py-4">{formatNumber(row.failures)}</td>
                     <td className="py-4">{row.averageLatencyMs}ms</td>
@@ -182,7 +215,7 @@ export function AdminAnalyticsClient() {
                 ))
               ) : (
                 <tr>
-                  <td className="py-5 text-black/55" colSpan={6}>
+                  <td className="text-ui-subtle py-5" colSpan={6}>
                     No AI provider usage has been recorded yet.
                   </td>
                 </tr>
@@ -206,21 +239,35 @@ function MetricCard({
 }) {
   return (
     <Card className="p-5">
-      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-black/45">
+      <p className="text-ui-faint text-xs font-semibold tracking-[0.22em] uppercase">
         {label}
       </p>
-      <p className={tone === "danger" ? "mt-4 text-3xl font-semibold text-[#8e2f2f]" : "mt-4 text-3xl font-semibold text-black/88"}>
+      <p
+        className={
+          tone === "danger"
+            ? "mt-4 text-3xl font-semibold text-[color:var(--danger-strong)]"
+            : "mt-4 text-3xl font-semibold text-[color:var(--text-primary)]"
+        }
+      >
         {value}
       </p>
     </Card>
   );
 }
 
-function SectionTitle({ title, description }: { title: string; description: string }) {
+function SectionTitle({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
   return (
     <div>
-      <h2 className="text-lg font-semibold text-black/88">{title}</h2>
-      <p className="mt-1 text-sm leading-6 text-black/58">{description}</p>
+      <h2 className="text-lg font-semibold text-[color:var(--text-primary)]">
+        {title}
+      </h2>
+      <p className="text-ui-muted mt-1 text-sm leading-6">{description}</p>
     </div>
   );
 }
@@ -237,12 +284,14 @@ function BarRow({
   return (
     <div>
       <div className="flex items-center justify-between gap-4 text-sm">
-        <span className="font-semibold text-black/78">{label}</span>
-        <span className="text-black/52">
+        <span className="font-semibold text-[color:var(--text-secondary)]">
+          {label}
+        </span>
+        <span className="text-ui-faint">
           {formatNumber(value)} · {percent}%
         </span>
       </div>
-      <div className="mt-2 h-2 overflow-hidden rounded-full bg-black/8">
+      <div className="mt-2 h-2 overflow-hidden rounded-full bg-[color:var(--surface-disabled)]">
         <div
           className="h-full rounded-full bg-[color:var(--accent)]"
           style={{ width: `${Math.min(percent, 100)}%` }}
@@ -252,9 +301,13 @@ function BarRow({
   );
 }
 
-function RankedList({ rows }: { rows: Array<{ label: string; count: number }> }) {
+function RankedList({
+  rows,
+}: {
+  rows: Array<{ label: string; count: number }>;
+}) {
   if (rows.length === 0) {
-    return <p className="mt-5 text-sm text-black/55">No data recorded yet.</p>;
+    return <p className="text-ui-subtle mt-5 text-sm">No data recorded yet.</p>;
   }
 
   const max = Math.max(...rows.map((row) => row.count), 1);

@@ -23,6 +23,7 @@ export type ApiUsageInput = {
   promptTokens?: number;
   completionTokens?: number;
   totalTokens?: number;
+  estimatedCostUsd?: number;
   requestId?: string;
   errorCode?: string;
   metadata?: Record<string, unknown>;
@@ -45,6 +46,7 @@ export class AnalyticsEventRepository {
       promptTokens: input.promptTokens,
       completionTokens: input.completionTokens,
       totalTokens: input.totalTokens,
+      estimatedCostUsd: input.estimatedCostUsd,
       metadata: input.metadata ?? {},
     });
   }

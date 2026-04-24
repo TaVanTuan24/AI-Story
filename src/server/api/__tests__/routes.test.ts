@@ -118,6 +118,7 @@ describe("API routes", () => {
       data: { id: string };
     };
 
+    const startStartedAt = Date.now();
     const startResponse = await startRoute.POST(
       new Request(`http://localhost/api/story-sessions/${createdSession.data.id}/start`, {
         method: "POST",
@@ -127,9 +128,11 @@ describe("API routes", () => {
         params: Promise.resolve({ id: createdSession.data.id }),
       },
     );
+    const startLatencyMs = Date.now() - startStartedAt;
 
     const startText = await startResponse.text();
     expect(startResponse.status, startText).toBe(200);
+    expect(startLatencyMs).toBeLessThan(15_000);
     const startedPayload = JSON.parse(startText) as {
       data: {
         currentScene?: {
@@ -313,5 +316,308 @@ describe("API routes", () => {
     );
 
     expect(blockedResponse.status).toBe(422);
+  });
+
+  it("rewrites a story idea through the authenticated AI rewrite route", async () => {
+    const registerRoute = await import("@/app/api/auth/register/route");
+    const rewriteRoute = await import("@/app/api/story/rewrite/route");
+
+    const registerResponse = await registerRoute.POST(
+      new Request("http://localhost/api/auth/register", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          email: "rewrite@example.com",
+          displayName: "Rewrite Tester",
+          password: "VerySecurePassword1",
+        }),
+      }),
+    );
+    const registerPayload = (await registerResponse.json()) as {
+      data: { token: string };
+    };
+
+    const rewriteResponse = await rewriteRoute.POST(
+      new Request("http://localhost/api/story/rewrite", {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${registerPayload.data.token}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          text: [
+            "Title: The Eighth Bell",
+            "Premise: A court archivist finds tomorrow's death records hidden in tonight's ledgers.",
+            "Seed Prompt: Rain, cathedral bells, political panic.",
+          ].join("\n"),
+        }),
+      }),
+    );
+
+    const rewriteText = await rewriteResponse.text();
+    expect(rewriteResponse.status, rewriteText).toBe(200);
+    const rewritePayload = JSON.parse(rewriteText) as {
+      data: {
+        rewrittenText: string;
+        suggestedGenre?: string;
+        suggestedTone?: string;
+        dynamicStatsPreview: Array<{
+          key: string;
+          label: string;
+          description: string;
+        }>;
+      };
+    };
+
+    expect(rewritePayload.data.rewrittenText.length).toBeGreaterThan(20);
+    expect(Array.isArray(rewritePayload.data.dynamicStatsPreview)).toBe(true);
+  });
+
+  it("persists preferences, AI settings, and story output language across session APIs", async () => {
+    const registerRoute = await import("@/app/api/auth/register/route");
+    const meRoute = await import("@/app/api/me/route");
+    const preferencesRoute = await import("@/app/api/me/preferences/route");
+    const aiSettingsRoute = await import("@/app/api/me/ai-settings/route");
+    const createSessionRoute = await import("@/app/api/story-sessions/route");
+    const sessionRoute = await import("@/app/api/story-sessions/[id]/route");
+
+    const registerResponse = await registerRoute.POST(
+      new Request("http://localhost/api/auth/register", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          email: "prefs@example.com",
+          displayName: "Prefs Tester",
+          password: "VerySecurePassword1",
+        }),
+      }),
+    );
+    const registerPayload = (await registerResponse.json()) as {
+      data: { token: string };
+    };
+    const authHeader = {
+      authorization: `Bearer ${registerPayload.data.token}`,
+      "content-type": "application/json",
+    };
+
+    const updatedPreferencesResponse = await preferencesRoute.PATCH(
+      new Request("http://localhost/api/me/preferences", {
+        method: "PATCH",
+        headers: authHeader,
+        body: JSON.stringify({
+          interfaceLanguage: "vi",
+          storyOutputLanguage: "vi",
+          themePreference: "dark",
+          preferredTones: ["cinematic"],
+        }),
+      }),
+    );
+
+    expect(updatedPreferencesResponse.status).toBe(200);
+    const updatedPreferencesPayload = (await updatedPreferencesResponse.json()) as {
+      data: {
+        interfaceLanguage: string;
+        storyOutputLanguage: string;
+        themePreference: string;
+        preferredTones: string[];
+      };
+    };
+    expect(updatedPreferencesPayload.data.interfaceLanguage).toBe("vi");
+    expect(updatedPreferencesPayload.data.storyOutputLanguage).toBe("vi");
+    expect(updatedPreferencesPayload.data.themePreference).toBe("dark");
+    expect(updatedPreferencesPayload.data.preferredTones).toEqual(["cinematic"]);
+
+    const updatedAiSettingsResponse = await aiSettingsRoute.PATCH(
+      new Request("http://localhost/api/me/ai-settings", {
+        method: "PATCH",
+        headers: authHeader,
+        body: JSON.stringify({
+          defaultProvider: "openai",
+          providers: [
+            {
+              provider: "openai",
+              isEnabled: true,
+              newApiKey: "sk-openai-test-1234",
+              defaultModel: "gpt-5.4",
+            },
+            {
+              provider: "xai",
+              isEnabled: true,
+              newApiKey: "xai-secret-9876",
+              defaultModel: "grok-4",
+            },
+          ],
+          taskOverrides: {
+            next_scene: {
+              provider: "openai",
+              model: "gpt-5.4",
+            },
+            summarization: {
+              provider: "xai",
+              model: "grok-3-mini",
+            },
+            consistency_check: {
+              provider: "xai",
+              model: "grok-4",
+            },
+          },
+        }),
+      }),
+    );
+
+    expect(updatedAiSettingsResponse.status).toBe(200);
+    const updatedAiSettingsPayload = (await updatedAiSettingsResponse.json()) as {
+      data: {
+        defaultProvider: string | null;
+        taskOverrides: Record<string, { provider: string; model?: string }>;
+        providers: Array<{ provider: string; hasApiKey: boolean; apiKeyMasked: string | null }>;
+      };
+    };
+    expect(updatedAiSettingsPayload.data.defaultProvider).toBe("openai");
+    expect(updatedAiSettingsPayload.data.taskOverrides.summarization).toEqual({
+      provider: "xai",
+      model: "grok-3-mini",
+    });
+    expect(
+      updatedAiSettingsPayload.data.providers
+        .filter((provider) => ["openai", "xai"].includes(provider.provider))
+        .every((provider) => provider.hasApiKey),
+    ).toBe(true);
+    expect(JSON.stringify(updatedAiSettingsPayload)).not.toContain("sk-openai-test-1234");
+
+    const meResponse = await meRoute.GET(
+      new Request("http://localhost/api/me", {
+        method: "GET",
+        headers: authHeader,
+      }),
+    );
+    expect(meResponse.status).toBe(200);
+    const mePayload = (await meResponse.json()) as {
+      data: {
+        preferences: {
+          interfaceLanguage: string;
+          storyOutputLanguage: string;
+          themePreference: string;
+        };
+      };
+    };
+    expect(mePayload.data.preferences).toMatchObject({
+      interfaceLanguage: "vi",
+      storyOutputLanguage: "vi",
+      themePreference: "dark",
+    });
+
+    const createSessionResponse = await createSessionRoute.POST(
+      new Request("http://localhost/api/story-sessions", {
+        method: "POST",
+        headers: authHeader,
+        body: JSON.stringify({
+          titleHint: "Vietnamese Session",
+          premise: "A sealed letter arrives addressed to the dead governor's future heir.",
+          genre: "mystery",
+          tone: "tense",
+          enginePreset: "mystery",
+          deterministic: true,
+          seed: "vi-session-seed",
+        }),
+      }),
+    );
+    expect(createSessionResponse.status).toBe(201);
+    const createdSessionPayload = (await createSessionResponse.json()) as {
+      data: { id: string; storyOutputLanguage: "en" | "vi" };
+    };
+    expect(createdSessionPayload.data.storyOutputLanguage).toBe("vi");
+
+    const getSessionResponse = await sessionRoute.GET(
+      new Request(`http://localhost/api/story-sessions/${createdSessionPayload.data.id}`, {
+        method: "GET",
+        headers: authHeader,
+      }),
+      {
+        params: Promise.resolve({ id: createdSessionPayload.data.id }),
+      },
+    );
+    expect(getSessionResponse.status).toBe(200);
+    const getSessionPayload = (await getSessionResponse.json()) as {
+      data: { storyOutputLanguage: "en" | "vi" };
+    };
+    expect(getSessionPayload.data.storyOutputLanguage).toBe("vi");
+
+    const reloadedAiSettingsResponse = await aiSettingsRoute.GET(
+      new Request("http://localhost/api/me/ai-settings", {
+        method: "GET",
+        headers: authHeader,
+      }),
+    );
+    expect(reloadedAiSettingsResponse.status).toBe(200);
+    const reloadedAiSettingsPayload = (await reloadedAiSettingsResponse.json()) as {
+      data: {
+        defaultProvider: string | null;
+        taskOverrides: Record<string, { provider: string; model?: string }>;
+      };
+    };
+    expect(reloadedAiSettingsPayload.data.defaultProvider).toBe("openai");
+    expect(reloadedAiSettingsPayload.data.taskOverrides.consistency_check).toEqual({
+      provider: "xai",
+      model: "grok-4",
+    });
+
+    const preserveKeyResponse = await aiSettingsRoute.PATCH(
+      new Request("http://localhost/api/me/ai-settings", {
+        method: "PATCH",
+        headers: authHeader,
+        body: JSON.stringify({
+          taskOverrides: {
+            recap: {
+              provider: "openai",
+              model: "gpt-5.4",
+            },
+          },
+        }),
+      }),
+    );
+    expect(preserveKeyResponse.status).toBe(200);
+    const preserveKeyPayload = (await preserveKeyResponse.json()) as {
+      data: {
+        providers: Array<{ provider: string; hasApiKey: boolean; apiKeyMasked: string | null }>;
+      };
+    };
+    expect(
+      preserveKeyPayload.data.providers.find((provider) => provider.provider === "openai"),
+    ).toMatchObject({
+      hasApiKey: true,
+      apiKeyMasked: "sk-****1234",
+    });
+
+    const clearKeyResponse = await aiSettingsRoute.PATCH(
+      new Request("http://localhost/api/me/ai-settings", {
+        method: "PATCH",
+        headers: authHeader,
+        body: JSON.stringify({
+          providers: [
+            {
+              provider: "xai",
+              clearApiKey: true,
+            },
+          ],
+          taskOverrides: {
+            summarization: null,
+            consistency_check: null,
+          },
+        }),
+      }),
+    );
+    expect(clearKeyResponse.status).toBe(200);
+    const clearKeyPayload = (await clearKeyResponse.json()) as {
+      data: {
+        providers: Array<{ provider: string; hasApiKey: boolean; apiKeyMasked: string | null }>;
+      };
+    };
+    expect(
+      clearKeyPayload.data.providers.find((provider) => provider.provider === "xai"),
+    ).toMatchObject({
+      hasApiKey: false,
+      apiKeyMasked: null,
+    });
   });
 });

@@ -5,11 +5,17 @@ import type {
   ANALYTICS_EVENT_TYPES,
   API_PROVIDERS,
   API_USAGE_STATUSES,
+  INTERFACE_LANGUAGES,
   RELATIONSHIP_BUCKETS,
   SESSION_STATUSES,
   SNAPSHOT_KINDS,
   STORY_GENRES,
+  STORY_OUTPUT_LANGUAGES,
   SUMMARY_KINDS,
+  AI_REASONING_EFFORTS,
+  APP_THEMES,
+  USER_AI_PROVIDERS,
+  USER_AI_TASKS,
 } from "@/server/persistence/shared/constants";
 
 export type StoryGenre = (typeof STORY_GENRES)[number];
@@ -21,6 +27,12 @@ export type SummaryKind = (typeof SUMMARY_KINDS)[number];
 export type AnalyticsEventType = (typeof ANALYTICS_EVENT_TYPES)[number];
 export type ApiProvider = (typeof API_PROVIDERS)[number];
 export type ApiUsageStatus = (typeof API_USAGE_STATUSES)[number];
+export type UserAIProvider = (typeof USER_AI_PROVIDERS)[number];
+export type UserAITask = (typeof USER_AI_TASKS)[number];
+export type InterfaceLanguage = (typeof INTERFACE_LANGUAGES)[number];
+export type StoryOutputLanguage = (typeof STORY_OUTPUT_LANGUAGES)[number];
+export type AIReasoningEffort = (typeof AI_REASONING_EFFORTS)[number];
+export type AppTheme = (typeof APP_THEMES)[number];
 
 export type ObjectIdLike = Types.ObjectId | string;
 
@@ -106,10 +118,31 @@ export type TurnLogRecord = {
   actionSource: ActionSource;
   selectedChoiceId?: string;
   rawActionInput?: string;
+  gameOver?: boolean;
   snapshotId?: ObjectIdLike;
   aiResponseRef?: {
     provider: ApiProvider;
     requestId?: string;
+    model?: string;
+    task?: string;
+    promptVersion?: string;
+    attempts?: number;
+    retryCount?: number;
+    providerRequestId?: string;
+    structuredOutput?: {
+      status: "validated" | "repaired" | "fallback";
+      repairCount: number;
+      hadValidationRetry: boolean;
+    };
+    consistency?: {
+      checked: boolean;
+      valid: boolean;
+      issues: string[];
+      recommendations: string[];
+      repairAttempts: number;
+      repaired: boolean;
+      usedFallbackRepair: boolean;
+    };
     usageLogId?: ObjectIdLike;
     responseObjectPath?: string;
   };
@@ -135,6 +168,36 @@ export type UserPreferenceRecord = {
   preferredTones: string[];
   avoidedThemes: string[];
   customPromptHints: string[];
+  interfaceLanguage: InterfaceLanguage;
+  storyOutputLanguage: StoryOutputLanguage;
+  themePreference: AppTheme;
+};
+
+export type UserAIProviderSettingsRecord = {
+  provider: UserAIProvider;
+  isEnabled: boolean;
+  hasApiKey: boolean;
+  encryptedApiKey?: string;
+  apiKeyMasked?: string;
+  baseUrl?: string;
+  defaultModel?: string;
+  reasoningEffort?: AIReasoningEffort;
+  taskModels: Partial<Record<UserAITask, { model: string; reasoningEffort?: AIReasoningEffort }>>;
+  headers: {
+    organizationId?: string;
+    projectId?: string;
+  };
+};
+
+export type UserAISettingsRecord = {
+  userId: ObjectIdLike;
+  defaultProvider?: UserAIProvider;
+  providers: UserAIProviderSettingsRecord[];
+  taskOverrides: Partial<Record<UserAITask, {
+    provider: UserAIProvider;
+    model?: string;
+    reasoningEffort?: AIReasoningEffort;
+  }>>;
 };
 
 export type AnalyticsEventRecord = {

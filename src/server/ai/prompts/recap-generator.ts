@@ -7,7 +7,9 @@ import type {
 import {
   buildAntiDriftInstructions,
   buildJsonOnlyInstructions,
+  localizedText,
   buildPromptHeader,
+  resolvePromptLanguage,
   buildSchemaDisciplineInstructions,
   PROMPT_VERSION,
 } from "@/server/ai/prompts/shared";
@@ -42,7 +44,10 @@ export const recapGeneratorPrompt: AiPromptDefinition<
       "- openThreads: unresolved tensions, clues, or goals.",
     ].join("\n"),
   fallback: (input) => ({
-    recap: `The story has advanced through ${input.recentTurns.length} recent turns and remains unresolved.`,
+    recap: localizedText(resolvePromptLanguage(input), {
+      en: `The story has advanced through ${input.recentTurns.length} recent turns and remains unresolved.`,
+      vi: `Cau chuyen da tien qua ${input.recentTurns.length} luot gan day va van chua nga ngu.`,
+    }),
     highlights: input.recentTurns.slice(-3).map((turn) => turn.sceneSummary),
     openThreads: [],
   }),

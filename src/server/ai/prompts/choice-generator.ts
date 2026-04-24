@@ -7,7 +7,9 @@ import type {
 import {
   buildAntiDriftInstructions,
   buildJsonOnlyInstructions,
+  localizedText,
   buildPromptHeader,
+  resolvePromptLanguage,
   buildSchemaDisciplineInstructions,
   PROMPT_VERSION,
 } from "@/server/ai/prompts/shared";
@@ -41,14 +43,40 @@ export const choiceGeneratorPrompt: AiPromptDefinition<
       "- Choices must be meaningfully different.",
       "- Prefer concrete verbs and specific stakes.",
       "- Avoid repetitive filler choices.",
+      '- Each choice.intent must be one of exactly: "explore", "investigate", "socialize", "fight", "protect", "negotiate", "rest", "deceive", "reveal", "escape", "observe", or "improvise".',
+      "- Do not output synonym labels for intents. Convert ideas like talk, defend, search, persuade, or flee into the allowed enum values.",
     ].join("\n"),
-  fallback: () => ({
-    choices: [
-      { label: "Investigate the most suspicious detail", intent: "investigate", tags: ["probe"] },
-      { label: "Protect someone vulnerable nearby", intent: "protect", tags: ["defensive"] },
-      { label: "Push the situation forward aggressively", intent: "explore", tags: ["bold"] },
-    ],
-  }),
+  fallback: (input) => {
+    const language = resolvePromptLanguage(input);
+    return {
+      choices: [
+        {
+          label: localizedText(language, {
+            en: "Investigate the most suspicious detail",
+            vi: "Kiem tra chi tiet dang ngo nhat",
+          }),
+          intent: "investigate",
+          tags: ["probe"],
+        },
+        {
+          label: localizedText(language, {
+            en: "Protect someone vulnerable nearby",
+            vi: "Bao ve nguoi de bi ton thuong o gan",
+          }),
+          intent: "protect",
+          tags: ["defensive"],
+        },
+        {
+          label: localizedText(language, {
+            en: "Push the situation forward aggressively",
+            vi: "Day tinh huong tien len mot cach quyet liet",
+          }),
+          intent: "explore",
+          tags: ["bold"],
+        },
+      ],
+    };
+  },
   expectedOutputJsonSchema: JSON_SCHEMAS.generateChoices.schema,
   notes: {
     tokenBudget:

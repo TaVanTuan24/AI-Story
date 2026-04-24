@@ -7,8 +7,14 @@ import type {
   StoryChoice,
   StoryGenre,
   StoryScene,
+  StoryGenerationResult,
   SummaryCandidate,
 } from "@/server/narrative/types";
+import type {
+  UserAIProvider,
+  UserAITask,
+  StoryOutputLanguage,
+} from "@/server/persistence/types/data-models";
 
 export type AiTaskName =
   | "generateWorld"
@@ -39,6 +45,8 @@ export type AiPromptDefinition<TInput, TOutput> = {
   };
 };
 
+export type AiReasoningEffort = "low" | "medium" | "high";
+
 export type AiStructuredRequest<TInput> = {
   task: AiTaskName;
   promptVersion: PromptVersion;
@@ -49,14 +57,52 @@ export type AiStructuredRequest<TInput> = {
   jsonSchema: Record<string, unknown>;
   responseSchema: z.ZodTypeAny;
   fallback: () => unknown;
+  reasoningEffort?: AiReasoningEffort;
+  maxOutputTokens?: number;
+  timeoutMs?: number;
+  retryAttempts?: number;
+  postValidateOutput?: (output: unknown) => void;
   requestId?: string;
   metadata?: Record<string, unknown>;
+};
+
+export type AiProviderCredentials = {
+  apiKey?: string;
+  baseUrl?: string;
+  headers?: {
+    organizationId?: string;
+    projectId?: string;
+  };
+};
+
+export type AiProviderCapabilities = {
+  wireApi: "responses";
+  supportsNativeStrictJson: boolean;
+  supportsReasoningEffort: boolean;
+  isOpenAiCompatible: boolean;
+};
+
+export type AiRoute = {
+  task: UserAITask;
+  provider: UserAIProvider | "bootstrap";
+  model: string;
+  credentials?: AiProviderCredentials;
+  reasoningEffort?: AiReasoningEffort;
+  capabilities?: AiProviderCapabilities;
+  source: "task_override" | "default_provider" | "first_configured" | "app_fallback" | "bootstrap";
+  userId?: string;
 };
 
 export type AiTokenUsage = {
   inputTokens?: number;
   outputTokens?: number;
   totalTokens?: number;
+};
+
+export type AiStructuredOutputMetadata = {
+  status: "validated" | "repaired" | "fallback";
+  repairCount: number;
+  hadValidationRetry: boolean;
 };
 
 export type AiInvocationResult<TResult> = {
@@ -68,8 +114,16 @@ export type AiInvocationResult<TResult> = {
   attempts: number;
   usedFallback: boolean;
   usage?: AiTokenUsage;
+  providerRequestId?: string;
+  structuredOutput: AiStructuredOutputMetadata;
   output: TResult;
   rawText: string;
+};
+
+export type AiTaskExecution<TResult> = {
+  output: TResult;
+  invocation: AiInvocationResult<TResult>;
+  route: AiRoute;
 };
 
 export type AiLogger = {
@@ -95,6 +149,7 @@ export type GenerateWorldInput = {
   tone: string;
   premise: string;
   enginePreset: EnginePreset;
+  storyOutputLanguage?: StoryOutputLanguage;
 };
 
 export type GenerateWorldOutput = {
@@ -113,6 +168,7 @@ export type GenerateCharactersInput = {
   premise: string;
   enginePreset: EnginePreset;
   world: GenerateWorldOutput;
+  storyOutputLanguage?: StoryOutputLanguage;
 };
 
 export type GenerateCharactersOutput = {
@@ -132,18 +188,7 @@ export type GenerateOpeningSceneInput = {
   contextPack: NarrativeContextPack;
 };
 
-export type GenerateOpeningSceneOutput = {
-  scene: {
-    title: string;
-    body: string;
-    choices: Array<{
-      label: string;
-      intent: ActionIntent;
-      tags: string[];
-    }>;
-  };
-  summaryCandidate: string;
-};
+export type GenerateOpeningSceneOutput = StoryGenerationResult;
 
 export type GenerateChoicesInput = {
   contextPack: NarrativeContextPack;
@@ -175,17 +220,22 @@ export type GenerateNextSceneInput = {
   latestScene?: Pick<StoryScene, "title" | "body">;
 };
 
-export type GenerateNextSceneOutput = {
-  scene: {
-    title: string;
-    body: string;
-    choices: Array<{
-      label: string;
-      intent: ActionIntent;
-      tags: string[];
-    }>;
-  };
-  summaryCandidate: string;
+export type GenerateNextSceneOutput = StoryGenerationResult;
+
+export type RewriteStoryIdeaInput = {
+  text: string;
+  storyOutputLanguage?: StoryOutputLanguage;
+};
+
+export type RewriteStoryIdeaOutput = {
+  rewrittenText: string;
+  suggestedGenre?: StoryGenre;
+  suggestedTone?: string;
+  dynamicStatsPreview?: Array<{
+    key: string;
+    label: string;
+    description: string;
+  }>;
 };
 
 export type SummarizeTurnsInput = {
@@ -221,6 +271,7 @@ export type GenerateSessionTitleInput = {
   premise: string;
   enginePreset: EnginePreset;
   worldSummary?: string;
+  storyOutputLanguage?: StoryOutputLanguage;
 };
 
 export type GenerateSessionTitleOutput = {
@@ -247,10 +298,14 @@ export type GenerateRecapOutput = {
 export type AiProvider = {
   readonly name: string;
   readonly defaultModel: string;
+  readonly route?: AiRoute;
   invokeStructured<TResult>(request: AiStructuredRequest<unknown>): Promise<AiInvocationResult<TResult>>;
 };
 
 export type AiOrchestratorOptions = {
   logger?: AiLogger;
   usageHook?: AiUsageHook;
+  userId?: string;
 };
+
+export type AiTaskRoutingMap = Record<AiTaskName, UserAITask>;

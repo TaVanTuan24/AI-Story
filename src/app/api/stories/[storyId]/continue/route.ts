@@ -1,6 +1,4 @@
-import { StoryController } from "@/server/api/controllers/story-controller";
-
-const storyController = new StoryController();
+import { NextResponse } from "next/server";
 
 type RouteContext = {
   params: Promise<{
@@ -9,6 +7,11 @@ type RouteContext = {
 };
 
 export async function POST(request: Request, context: RouteContext) {
-  const { storyId } = await context.params;
-  return storyController.continue(request, storyId);
+  return NextResponse.json(
+    {
+      error: "The legacy /api/stories endpoint has been deprecated. Use /api/story-sessions instead.",
+      code: "LEGACY_STORIES_API_DEPRECATED",
+    },
+    { status: 410 },
+  );
 }

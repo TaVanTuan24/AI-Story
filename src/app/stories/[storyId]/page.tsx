@@ -12,7 +12,7 @@ export default async function StoryPage({ params }: StoryPageProps) {
 
   return (
     <AppShell>
-      <div className="flex items-center justify-between text-sm text-black/60">
+      <div className="text-ui-muted flex items-center justify-between text-sm">
         <span>Reader shell preview</span>
         <span>Story ID: {storyId}</span>
       </div>
@@ -23,9 +23,18 @@ export default async function StoryPage({ params }: StoryPageProps) {
         currentScene="Rain glossed the tram tracks silver as Mira unfolded the letter she should never have received. The handwriting matched her missing brother's exactly, right down to the impatient slant of the final word: run."
         choices={[
           { id: "inspect-letter", label: "Study the letter for hidden marks" },
-          { id: "board-tram", label: "Get on the last tram toward Ninth Street" },
-          { id: "call-contact", label: "Call the retired detective who knew your brother" },
-          { id: "burn-letter", label: "Destroy the letter before anyone else sees it" },
+          {
+            id: "board-tram",
+            label: "Get on the last tram toward Ninth Street",
+          },
+          {
+            id: "call-contact",
+            label: "Call the retired detective who knew your brother",
+          },
+          {
+            id: "burn-letter",
+            label: "Destroy the letter before anyone else sees it",
+          },
         ]}
       />
     </AppShell>

@@ -18,7 +18,9 @@ describe("NarrativeEngine", () => {
 
     expect(state.enginePreset).toBe("mystery");
     expect(state.metadata.deterministic).toBe(true);
-    expect(state.canonicalState.stats.focus).toBeGreaterThan(state.canonicalState.stats.danger);
+    expect(state.dynamicStats.focus?.value).toBeGreaterThan(
+      state.dynamicStats.suspicion?.value ?? 0,
+    );
     expect(state.availableActions).toHaveLength(3);
   });
 

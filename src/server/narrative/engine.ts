@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { ContradictoryStateUpdateError, InvalidActionError } from "@/server/narrative/errors";
+import { buildInitialCoreState, getGenreTemplate } from "@/server/narrative/genre-templates";
 import { createContextPack } from "@/server/narrative/context-pack";
 import { getPresetConfig } from "@/server/narrative/presets";
 import { createSeededRandom } from "@/server/narrative/random";
@@ -35,14 +36,20 @@ export class NarrativeEngine {
   createInitialState(input: InitializeStoryInput): StoryState {
     const preset = input.enginePreset ?? "freeform";
     const presetConfig = getPresetConfig(preset);
+    const genreTemplate = getGenreTemplate(input.genre);
     const seed = input.seed ?? randomUUID();
     const deterministic = input.deterministic ?? this.options.deterministic ?? false;
+    const storyOutputLanguage = input.storyOutputLanguage ?? "en";
 
     const title = input.titleHint?.trim() || "Untitled Session";
     const scene: StoryState["currentScene"] = {
       sceneNumber: 0,
-      title: "Session bootstrap",
-      body: "The narrative opening has not been generated yet.",
+      title:
+        storyOutputLanguage === "vi" ? "Khoi dong phien" : "Session bootstrap",
+      body:
+        storyOutputLanguage === "vi"
+          ? "Canh mo dau cua cau chuyen chua duoc tao."
+          : "The narrative opening has not been generated yet.",
       choices: [],
     };
 
@@ -84,7 +91,9 @@ export class NarrativeEngine {
         worldFlags: ["session-started"],
         questFlags: [],
         inventory: [],
-        stats: { ...presetConfig.defaultStats },
+        stats: Object.fromEntries(
+          Object.entries(genreTemplate.dynamicStats).map(([key, definition]) => [key, definition.value]),
+        ),
         relationships: [],
         clues: [],
         worldFacts: [
@@ -98,6 +107,34 @@ export class NarrativeEngine {
       },
       availableActions: [],
       turnHistory: [],
+      storyHistory: [],
+      coreState: buildInitialCoreState(input.genre, input.tone, 0),
+      dynamicStats: structuredClone(genreTemplate.dynamicStats),
+      relationships: {},
+      inventory: [],
+      abilities: genreTemplate.startingAbilities ? structuredClone(genreTemplate.startingAbilities) : [],
+      flags: ["session-started"],
+      worldMemory: [
+        {
+          id: "premise-memory",
+          text: input.premise,
+          kind: "fact",
+          turnNumber: 0,
+          pinned: true,
+        },
+      ],
+      lastChoice: null,
+      gameOver: false,
+      playerStats: {
+        health: presetConfig.defaultStats.health,
+        stamina: presetConfig.defaultStats.stamina,
+        morale: presetConfig.defaultStats.morale,
+        trust: presetConfig.defaultStats.trust,
+        suspicion: presetConfig.defaultStats.suspicion,
+        danger: presetConfig.defaultStats.danger,
+        stress: presetConfig.defaultStats.stress,
+        focus: presetConfig.defaultStats.focus,
+      },
       metadata: {
         branchKey: randomUUID(),
         turnCount: 0,
@@ -105,14 +142,36 @@ export class NarrativeEngine {
         lastUpdatedAt: new Date().toISOString(),
         deterministic,
         seed,
+        storyOutputLanguage,
       },
     };
 
     state.availableActions = this.compileActions(
       [
-        { label: "Survey the situation before acting", intent: "observe", tags: ["careful"] },
-        { label: "Approach the central source of tension", intent: "explore", tags: ["bold"] },
-        { label: "Reach out to the first important person nearby", intent: "socialize", tags: ["social"] },
+        {
+          label:
+            storyOutputLanguage === "vi"
+              ? "Quan sat ky the co truoc khi hanh dong"
+              : "Study the situation carefully before acting",
+          intent: "observe",
+          tags: ["careful"],
+        },
+        {
+          label:
+            storyOutputLanguage === "vi"
+              ? "Tien gan diem cang thang nhat de do phan ung cua the gioi"
+              : "Move toward the point of highest tension and test the world's reaction",
+          intent: "explore",
+          tags: ["bold"],
+        },
+        {
+          label:
+            storyOutputLanguage === "vi"
+              ? "Tiep can nguoi co ve nam giu mat xich quan trong dau tien"
+              : "Approach the person who seems to hold the first critical link",
+          intent: "socialize",
+          tags: ["social"],
+        },
       ],
       state,
     );
@@ -221,44 +280,64 @@ export class NarrativeEngine {
   }
 
   finalizeTurn(prepared: PreparedTurn, generated: StoryGenerationResult): ProcessedTurn {
-    const sceneChoices = generated.scene.choices.slice(0, 4);
+    const sceneChoices = generated.choices.slice(0, 5);
     const previousState = prepared.previousState;
+    const sceneBody = generated.story;
+    const sceneTitle =
+      sceneBody
+        .split(/[\n.!?]/)
+        .map((entry) => entry.trim())
+        .find(Boolean)
+        ?.split(/\s+/)
+        .slice(0, 8)
+        .join(" ") ?? `Turn ${prepared.turnNumber}`;
+    const sceneSummary =
+      sceneBody.length > 320 ? `${sceneBody.slice(0, 317)}...` : sceneBody;
 
     const scene = {
       sceneNumber: prepared.turnNumber,
-      title: generated.scene.title,
-      body: generated.scene.body,
+      title: sceneTitle,
+      body: sceneBody,
       rawActionInput:
         prepared.normalizedAction.source === "custom"
           ? prepared.normalizedAction.originalInput
           : undefined,
       choices: sceneChoices.map((choice, index) => ({
-        id: `${toSlug(choice.label)}-${prepared.turnNumber}-${index + 1}`,
-        label: choice.label,
-        intent: choice.intent,
-        tags: choice.tags ?? [],
+        id: choice.id || `${toSlug(choice.text)}-${prepared.turnNumber}-${index + 1}`,
+        label: choice.text,
+        intent: prepared.normalizedAction.intent,
+        tags: [choice.risk],
+        risk: choice.risk,
+        hiddenImpact: choice.hiddenImpact,
       })),
     };
 
-    const nextAvailableActions = this.compileActions(sceneChoices, {
-      ...previousState,
-      canonicalState: prepared.nextCanonicalState,
-      currentScene: scene,
-      metadata: {
-        ...previousState.metadata,
-        turnCount: prepared.turnNumber,
+    const nextAvailableActions = this.compileActions(
+      scene.choices.map((choice) => ({
+        label: choice.label,
+        intent: choice.intent,
+        tags: choice.tags,
+      })),
+      {
+        ...previousState,
+        canonicalState: prepared.nextCanonicalState,
+        currentScene: scene,
+        metadata: {
+          ...previousState.metadata,
+          turnCount: prepared.turnNumber,
+        },
       },
-    });
+    );
 
     const nextState: StoryState = {
       ...previousState,
       currentScene: scene,
       scenes: [...previousState.scenes, scene],
-      summary: generated.summaryCandidate,
-      summaryCandidate: generated.summaryCandidate,
+      summary: sceneSummary,
+      summaryCandidate: sceneSummary,
       canonicalState: {
         ...prepared.nextCanonicalState,
-        sceneSummary: generated.summaryCandidate,
+        sceneSummary,
       },
       availableActions: nextAvailableActions,
       turnHistory: [
@@ -268,10 +347,14 @@ export class NarrativeEngine {
           action: prepared.normalizedAction,
           sceneTitle: scene.title,
           sceneBody: scene.body,
-          sceneSummary: generated.summaryCandidate,
+          sceneSummary,
           choices: scene.choices,
           deltaLog: prepared.deltaLog,
           createdAt: new Date().toISOString(),
+          risk: scene.choices[0]?.risk ?? "medium",
+          outcome: "partial_success",
+          roll: 50,
+          gameOver: generated.coreStateUpdates.gameOver,
         },
       ],
       memory: {
@@ -561,6 +644,12 @@ export class NarrativeEngine {
       label: choice.label,
       intent: choice.intent,
       tags: choice.tags ?? [],
+      risk: choice.tags?.includes("high")
+        ? "high"
+        : choice.tags?.includes("low")
+          ? "low"
+          : "medium",
+      hiddenImpact: `Following this option pushes the story through a ${choice.intent} move.`,
       source: "choice",
       requirements: [],
       preview: `Intent: ${choice.intent}`,
@@ -573,6 +662,8 @@ export class NarrativeEngine {
       label: action.label,
       intent: action.intent,
       tags: action.tags,
+      risk: action.risk,
+      hiddenImpact: action.hiddenImpact,
     }));
   }
 

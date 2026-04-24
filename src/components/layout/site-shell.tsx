@@ -3,14 +3,17 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
+import { LanguageSwitcher } from "@/components/i18n/language-switcher";
 import { useAuth } from "@/components/providers/auth-provider";
+import { useI18n } from "@/components/providers/i18n-provider";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
 
 const navigation = [
-  { href: "/dashboard", label: "Library" },
-  { href: "/story-sessions/new", label: "Create" },
-  { href: "/profile", label: "Profile" },
+  { href: "/dashboard", labelKey: "nav.library" },
+  { href: "/story-sessions/new", labelKey: "nav.create" },
+  { href: "/profile", labelKey: "nav.profile" },
 ];
 
 export function SiteShell({
@@ -23,6 +26,7 @@ export function SiteShell({
   const pathname = usePathname();
   const router = useRouter();
   const { isAuthenticated, user, signOut } = useAuth();
+  const { t } = useI18n();
 
   return (
     <div className="min-h-screen">
@@ -32,44 +36,51 @@ export function SiteShell({
             href={isAuthenticated ? "/dashboard" : "/"}
             className="group flex min-w-0 items-center gap-3"
           >
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#1f1b16] text-sm font-semibold uppercase tracking-[0.28em] text-[#f8eddd] shadow-[var(--shadow-soft)] transition-transform duration-300 group-hover:-translate-y-0.5">
+            <span className="themed-brand-badge flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-sm font-semibold tracking-[0.28em] uppercase shadow-[var(--shadow-soft)] transition-transform duration-300 group-hover:-translate-y-0.5">
               AS
             </span>
             <div className="min-w-0">
-              <p className="text-xs font-semibold tracking-[0.28em] uppercase text-[color:var(--accent)]">
-                AI Story
+              <p className="eyebrow-label text-xs font-semibold uppercase">
+                {t("common.appName")}
               </p>
-              <p className="truncate text-sm text-black/60">
-                Living interactive fiction
+              <p className="text-ui-muted truncate text-sm">
+                {t("common.appTagline")}
               </p>
             </div>
           </Link>
 
-          <div className="hidden items-center gap-2 rounded-full border border-[color:var(--border)] bg-white/55 p-1 shadow-[var(--shadow-soft)] lg:flex">
+          <div className="hidden items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-strong)] p-1 shadow-[var(--shadow-soft)] lg:flex">
             {mode === "app" && isAuthenticated
               ? navigation.map((item) => (
                   <Link
                     key={item.href}
                     href={item.href}
+                    aria-current={pathname === item.href ? "page" : undefined}
                     className={cn(
-                      "rounded-full px-4 py-2 text-sm font-semibold transition duration-200",
+                      "rounded-full px-4 py-2 text-sm font-semibold transition duration-200 focus-visible:ring-4 focus-visible:ring-[color:var(--focus-ring)]",
                       pathname === item.href
-                        ? "bg-[#1f1b16] text-[#f8eddd] shadow-[var(--shadow-soft)]"
-                        : "text-black/68 hover:bg-white/80 hover:text-black",
+                        ? "bg-[color:var(--surface-dark)] text-[color:var(--button-primary-text)] shadow-[var(--shadow-soft)]"
+                        : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-selected)] hover:text-[color:var(--text-primary)]",
                     )}
                   >
-                    {item.label}
-                </Link>
+                    {t(item.labelKey)}
+                  </Link>
                 ))
               : null}
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
+            <ThemeToggle compact className="hidden sm:inline-flex" />
+            <LanguageSwitcher compact className="hidden sm:inline-flex" />
             {isAuthenticated && user ? (
               <>
-                <div className="hidden rounded-full border border-[color:var(--border)] bg-white/65 px-4 py-2 text-sm shadow-[var(--shadow-soft)] md:block">
-                  <span className="text-black/55">Signed in as </span>
-                  <span className="font-semibold text-black/80">{user.displayName}</span>
+                <div className="hidden rounded-full border border-[color:var(--border)] bg-[color:var(--surface-strong)] px-4 py-2 text-sm shadow-[var(--shadow-soft)] md:block">
+                  <span className="text-[color:var(--text-subtle)]">
+                    {t("common.signedInAs")}{" "}
+                  </span>
+                  <span className="font-semibold text-[color:var(--text-primary)]">
+                    {user.displayName}
+                  </span>
                 </div>
                 <Button
                   variant="secondary"
@@ -79,19 +90,22 @@ export function SiteShell({
                     router.replace("/");
                   }}
                 >
-                  Log out
+                  {t("common.logout")}
                 </Button>
               </>
             ) : (
               <>
                 <Link
                   href="/login"
-                  className="rounded-full px-3 py-2 text-sm font-semibold text-black/68 transition hover:bg-white/60 hover:text-black"
+                  className="rounded-full px-3 py-2 text-sm font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-strong)] hover:text-[color:var(--text-primary)] focus-visible:ring-4 focus-visible:ring-[color:var(--focus-ring)]"
                 >
-                  Login
+                  {t("common.login")}
                 </Link>
-                <Button className="min-w-[8.5rem]" onClick={() => router.push("/register")}>
-                  Start Playing
+                <Button
+                  className="min-w-[8.5rem]"
+                  onClick={() => router.push("/register")}
+                >
+                  {t("nav.startPlaying")}
                 </Button>
               </>
             )}

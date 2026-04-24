@@ -16,6 +16,12 @@ export function presentStorySessionListItem(
     genre: String(session.genre),
     tone: String(session.tone),
     enginePreset: String(session.enginePreset),
+    storyOutputLanguage:
+      session.metadata &&
+      typeof session.metadata === "object" &&
+      (session.metadata as Record<string, unknown>).storyOutputLanguage === "vi"
+        ? "vi"
+        : "en",
     difficulty:
       session.metadata && typeof session.metadata === "object" && "difficulty" in session.metadata
         ? String((session.metadata as Record<string, unknown>).difficulty)
@@ -41,9 +47,17 @@ export function presentStorySessionDetail(input: {
   characters?: Array<Record<string, unknown>>;
 }): StorySessionDetailDto {
   const base = presentStorySessionListItem(input.session);
+  const storyOutputLanguage =
+    input.storyState?.metadata.storyOutputLanguage ??
+    (input.session.metadata &&
+    typeof input.session.metadata === "object" &&
+    (input.session.metadata as Record<string, unknown>).storyOutputLanguage === "vi"
+      ? "vi"
+      : "en");
 
   return {
     ...base,
+    storyOutputLanguage,
     seedPrompt:
       input.session.metadata &&
       typeof input.session.metadata === "object" &&
@@ -65,9 +79,54 @@ export function presentStorySessionDetail(input: {
       ? {
           title: input.storyState.currentScene.title,
           body: input.storyState.currentScene.body,
+          risk: input.storyState.currentScene.risk,
+          outcome: input.storyState.currentScene.outcome,
+          roll: input.storyState.currentScene.roll,
+          gameOver: input.storyState.currentScene.gameOver,
           choices: input.storyState.currentScene.choices,
         }
       : undefined,
+    coreState: input.storyState
+      ? {
+          genre: input.storyState.coreState.genre,
+          tone: input.storyState.coreState.tone,
+          currentArc: input.storyState.coreState.currentArc,
+          turn: input.storyState.coreState.turn,
+          gameOver: input.storyState.coreState.gameOver,
+          endingType: input.storyState.coreState.endingType,
+          gameRules: input.storyState.coreState.gameRules,
+        }
+      : undefined,
+    dynamicStats: input.storyState
+      ? Object.entries(input.storyState.dynamicStats).map(([key, definition]) => ({
+          key,
+          value: definition.value,
+          label: definition.label,
+          description: definition.description,
+          min: definition.min,
+          max: definition.max,
+        }))
+      : undefined,
+    relationships: input.storyState
+      ? Object.values(input.storyState.relationships).map((relationship) => ({
+          characterId: relationship.characterId,
+          name: relationship.name,
+          role: relationship.role,
+          affinity: relationship.affinity,
+          trust: relationship.trust,
+          conflict: relationship.conflict,
+          notes: relationship.notes,
+          statusFlags: relationship.statusFlags,
+        }))
+      : undefined,
+    playerStats: input.storyState?.playerStats,
+    inventory: input.storyState?.inventory,
+    abilities: input.storyState?.abilities,
+    flags: input.storyState?.flags,
+    worldMemory: input.storyState?.worldMemory,
+    lastChoice: input.storyState?.lastChoice,
+    gameOver: input.storyState?.gameOver,
+    storyHistory: input.storyState?.storyHistory,
     canonicalState: input.storyState
       ? {
           sceneSummary: input.storyState.canonicalState.sceneSummary,

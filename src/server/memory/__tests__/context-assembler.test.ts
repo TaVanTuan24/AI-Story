@@ -171,6 +171,77 @@ function createState(): StoryState {
     },
     availableActions: [],
     turnHistory: [],
+    storyHistory: [
+      "The protagonist stole the registry key and fled the harbor office.",
+      "The debt collector was exposed as the duke's agent.",
+    ],
+    coreState: {
+      genre: "mystery",
+      tone: "tense",
+      currentArc: "Lantern Court closes in",
+      turn: 8,
+      gameOver: false,
+      endingType: null,
+      gameRules: ["Discoveries must be recorded before they become canon."],
+    },
+    dynamicStats: {
+      evidence: {
+        value: 52,
+        label: "Chứng cứ",
+        description: "Lượng thông tin xác thực đã thu thập được.",
+        min: 0,
+        max: 100,
+      },
+      suspicion: {
+        value: 52,
+        label: "Nghi ngờ",
+        description: "Mức độ nhân vật bị để ý hoặc bị nghi kỵ.",
+        min: 0,
+        max: 100,
+      },
+      focus: {
+        value: 76,
+        label: "Tập trung",
+        description: "Độ sắc bén khi ghép nối dữ kiện.",
+        min: 0,
+        max: 100,
+      },
+    },
+    relationships: {
+      duke_agent: {
+        characterId: "duke-agent",
+        name: "Duke's agent",
+        role: "session-character",
+        affinity: 22,
+        trust: 22,
+        conflict: 78,
+        notes: "Exposed",
+        statusFlags: ["exposed"],
+      },
+    },
+    playerStats: {
+      health: 82,
+      stamina: 70,
+      morale: 64,
+      trust: 45,
+      suspicion: 52,
+      danger: 61,
+      stress: 58,
+      focus: 76,
+    },
+    inventory: [{ id: "salt-key", label: "Salt Key", quantity: 1, tags: ["artifact"] }],
+    abilities: [],
+    flags: ["session-started", "active-lead"],
+    worldMemory: [
+      {
+        id: "memory-1",
+        text: "The debt collector was exposed as the duke's agent.",
+        kind: "event",
+        turnNumber: 8,
+      },
+    ],
+    lastChoice: "Corner the messenger",
+    gameOver: false,
     metadata: {
       branchKey: "branch-1",
       turnCount: 8,
@@ -178,6 +249,7 @@ function createState(): StoryState {
       lastUpdatedAt: new Date().toISOString(),
       deterministic: false,
       seed: "seed-1",
+      storyOutputLanguage: "en",
     },
   };
 }
@@ -206,5 +278,9 @@ function createTurn(turnNumber: number, actionText: string, sceneSummary: string
     choices: [],
     deltaLog: [],
     createdAt: new Date().toISOString(),
+    risk: "medium",
+    outcome: "partial_success",
+    roll: 50,
+    gameOver: false,
   };
 }

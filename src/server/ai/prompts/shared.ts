@@ -35,3 +35,30 @@ export function buildSchemaDisciplineInstructions() {
 }
 
 export const PROMPT_VERSION = "v1" as const;
+
+export function resolvePromptLanguage(input: unknown): "en" | "vi" {
+  if (!input || typeof input !== "object") {
+    return "en";
+  }
+
+  const direct = (input as { storyOutputLanguage?: unknown }).storyOutputLanguage;
+  if (direct === "vi") {
+    return "vi";
+  }
+  if (direct === "en") {
+    return "en";
+  }
+
+  const contextLanguage = (input as {
+    contextPack?: { language?: { storyOutputLanguage?: unknown } };
+  }).contextPack?.language?.storyOutputLanguage;
+
+  return contextLanguage === "vi" ? "vi" : "en";
+}
+
+export function localizedText(
+  language: "en" | "vi",
+  copy: { en: string; vi: string },
+) {
+  return language === "vi" ? copy.vi : copy.en;
+}

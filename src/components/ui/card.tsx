@@ -10,7 +10,7 @@ export function Card({
   return (
     <section
       className={cn(
-        "surface-glow rounded-[var(--radius-card)] border bg-[color:var(--surface)] shadow-[var(--shadow-card)] backdrop-blur-xl transition-shadow duration-300",
+        "surface-glow rounded-[var(--radius-card)] border bg-[color:var(--surface)] text-[color:var(--text-primary)] shadow-[var(--shadow-card)] backdrop-blur-xl transition-shadow duration-300",
         className,
       )}
     >

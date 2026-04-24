@@ -7,7 +7,9 @@ import type {
 import {
   buildAntiDriftInstructions,
   buildJsonOnlyInstructions,
+  localizedText,
   buildPromptHeader,
+  resolvePromptLanguage,
   buildSchemaDisciplineInstructions,
   PROMPT_VERSION,
 } from "@/server/ai/prompts/shared";
@@ -46,7 +48,10 @@ export const customActionInterpreterPrompt: AiPromptDefinition<
     normalizedText: input.rawAction.trim(),
     intent: "improvise",
     tags: ["custom"],
-    rationale: "Fallback interpretation due to malformed model output.",
+    rationale: localizedText(resolvePromptLanguage(input), {
+      en: "Fallback interpretation due to malformed model output.",
+      vi: "Dien giai du phong do phan hoi cua mo hinh khong hop le.",
+    }),
   }),
   expectedOutputJsonSchema: JSON_SCHEMAS.interpretCustomAction.schema,
   notes: {

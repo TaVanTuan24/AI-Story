@@ -4,6 +4,7 @@ import type {
   StoryState,
   StoryTurnRecord,
 } from "@/server/narrative/types";
+import { ensureStoryStateDefaults } from "@/server/narrative/state-normalizer";
 
 export type AssembleContextPackInput = {
   storyId: string;
@@ -14,6 +15,10 @@ export type AssembleContextPackInput = {
   consistencyCheckEnabled: boolean;
   canonFactsMax: number;
   rollingSummariesMax: number;
+  storyHistoryMax?: number;
+  worldMemoryMax?: number;
+  knownFactsMax?: number;
+  relationshipsMax?: number;
 };
 
 export function assembleContextPack({
@@ -25,9 +30,26 @@ export function assembleContextPack({
   consistencyCheckEnabled,
   canonFactsMax,
   rollingSummariesMax,
+  storyHistoryMax,
+  worldMemoryMax,
+  knownFactsMax,
+  relationshipsMax,
 }: AssembleContextPackInput): NarrativeContextPack {
-  const canonFacts = prioritizeCanonFacts(state.memory.canon.facts, canonFactsMax);
-  const rollingSummaries = state.memory.rollingSummaries
+  const normalizedState = ensureStoryStateDefaults(state);
+  const canonFacts = prioritizeCanonFacts(normalizedState.memory.canon.facts, canonFactsMax);
+  const relationships = Object.values(normalizedState.relationships).slice(
+    -Math.max(
+      1,
+      relationshipsMax ?? Object.keys(normalizedState.relationships).length ?? 1,
+    ),
+  );
+  const knownFacts = normalizedState.canonicalState.worldFacts
+    .slice(-(knownFactsMax ?? normalizedState.canonicalState.worldFacts.length))
+    .map((fact) => ({
+      id: fact.id,
+      value: fact.value,
+    }));
+  const rollingSummaries = normalizedState.memory.rollingSummaries
     .slice(-rollingSummariesMax)
     .map((entry) => ({
       turnNumber: entry.turnNumber,
@@ -38,39 +60,38 @@ export function assembleContextPack({
 
   return {
     storyId,
-    title: state.title,
-    genre: state.genre,
-    tone: state.tone,
-    premise: state.premise,
-    enginePreset: state.enginePreset,
-    currentTurn: state.metadata.turnCount,
-    deterministic: state.metadata.deterministic,
-    currentSceneSummary: state.canonicalState.sceneSummary,
-    worldRules: state.worldRules,
+    title: normalizedState.title,
+    genre: normalizedState.genre,
+    tone: normalizedState.tone,
+    premise: normalizedState.premise,
+    enginePreset: normalizedState.enginePreset,
+    currentTurn: normalizedState.metadata.turnCount,
+    deterministic: normalizedState.metadata.deterministic,
+    currentSceneSummary: normalizedState.canonicalState.sceneSummary,
+    worldRules: normalizedState.worldRules,
+    coreState: normalizedState.coreState,
+    dynamicStats: Object.entries(normalizedState.dynamicStats).map(([key, definition]) => ({
+      key,
+      ...definition,
+    })),
+    relationships,
     flags: {
-      world: state.canonicalState.worldFlags,
-      quest: state.canonicalState.questFlags,
+      world: normalizedState.canonicalState.worldFlags,
+      quest: normalizedState.canonicalState.questFlags,
+      story: normalizedState.flags,
     },
-    stats: state.canonicalState.stats,
-    inventory: state.canonicalState.inventory.map((item) => ({
+    stats: normalizedState.canonicalState.stats,
+    inventory: normalizedState.inventory.map((item) => ({
       id: item.id,
       label: item.label,
       quantity: item.quantity,
     })),
-    relationships: state.canonicalState.relationships.map((relationship) => ({
-      characterId: relationship.characterId,
-      label: relationship.label,
-      score: relationship.score,
-      level: relationship.level,
-    })),
-    clues: state.canonicalState.clues.map((clue) => ({
+    abilities: normalizedState.abilities,
+    clues: normalizedState.canonicalState.clues.map((clue) => ({
       id: clue.id,
       label: clue.label,
     })),
-    knownFacts: state.canonicalState.worldFacts.map((fact) => ({
-      id: fact.id,
-      value: fact.value,
-    })),
+    knownFacts,
     memory: {
       shortTerm: recentTurns.map((turn) => ({
         turnNumber: turn.turnNumber,
@@ -87,8 +108,8 @@ export function assembleContextPack({
           value: fact.value,
           immutable: fact.immutable,
         })),
-        irreversibleEvents: state.memory.canon.irreversibleEvents,
-        importantFlags: state.memory.canon.importantFlags,
+        irreversibleEvents: normalizedState.memory.canon.irreversibleEvents,
+        importantFlags: normalizedState.memory.canon.importantFlags,
       },
     },
     normalizedAction,
@@ -115,6 +136,22 @@ export function assembleContextPack({
         "Prefer compact continuity-aware output over verbose recap.",
         "Keep the options actionable and distinct.",
       ],
+    },
+    storyHistory: normalizedState.storyHistory.slice(
+      -(storyHistoryMax ?? normalizedState.storyHistory.length),
+    ),
+    worldMemory: normalizedState.worldMemory.slice(
+      -(worldMemoryMax ?? normalizedState.worldMemory.length),
+    ),
+    playerStats: normalizedState.playerStats,
+    lastChoice: normalizedState.lastChoice,
+    gameOver: normalizedState.gameOver,
+    language: {
+      storyOutputLanguage: normalizedState.metadata.storyOutputLanguage ?? "en",
+      instruction:
+        normalizedState.metadata.storyOutputLanguage === "vi"
+          ? "Write all player-facing generated story text entirely in Vietnamese. Do not mix languages. Keep internal JSON keys unchanged."
+          : "Write all player-facing generated story text entirely in English. Do not mix languages. Keep internal JSON keys unchanged.",
     },
   };
 }

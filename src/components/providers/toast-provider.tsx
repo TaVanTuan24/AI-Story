@@ -33,15 +33,19 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             key={toast.id}
             className={`pointer-events-auto rounded-[1.5rem] border px-4 py-4 shadow-lg backdrop-blur ${
               toast.tone === "error"
-                ? "border-red-200 bg-[#fff1ef]"
+                ? "status-danger"
                 : toast.tone === "success"
-                  ? "border-emerald-200 bg-[#eff9f2]"
-                  : "border-[color:var(--border)] bg-[color:var(--surface-strong)]"
+                  ? "status-success"
+                  : "status-info"
             }`}
           >
-            <p className="font-semibold">{toast.title}</p>
+            <p className="font-semibold text-[color:var(--text-primary)]">
+              {toast.title}
+            </p>
             {toast.description ? (
-              <p className="mt-1 text-sm leading-6 text-black/70">{toast.description}</p>
+              <p className="mt-1 text-sm leading-6 text-[color:var(--text-secondary)]">
+                {toast.description}
+              </p>
             ) : null}
           </div>
         ))}

@@ -9,7 +9,11 @@ const envSchema = z.object({
     .string()
     .min(1, "MONGODB_URI is required.")
     .default("mongodb://127.0.0.1:27017/ai-story"),
-  AI_PROVIDER: z.enum(["bootstrap", "openai", "anthropic"]).default("openai"),
+  AI_PROVIDER: z.enum(["bootstrap", "openai", "anthropic", "google_gemini", "xai"]).default("openai"),
+  AI_ALLOW_APP_PROVIDER_FALLBACK: z
+    .string()
+    .optional()
+    .transform((value) => value !== "false"),
   AI_MAX_RETRIES: z.coerce.number().int().min(1).max(5).default(2),
   AI_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(120_000).default(25_000),
   AI_RETRY_BASE_DELAY_MS: z.coerce.number().int().min(50).max(10_000).default(400),
@@ -40,6 +44,10 @@ const envSchema = z.object({
   AUTH_COOKIE_SAME_SITE: z.enum(["strict", "lax", "none"]).default("lax"),
   PASSWORD_BCRYPT_ROUNDS: z.coerce.number().int().min(10).max(15).default(12),
   PASSWORD_PEPPER: z.string().optional(),
+  AI_SETTINGS_ENCRYPTION_KEY: z
+    .string()
+    .min(32, "AI_SETTINGS_ENCRYPTION_KEY must be at least 32 characters.")
+    .default("dev-insecure-ai-settings-key-change-me"),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().min(1000).default(60_000),
   RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().min(1).default(60),
   AUTH_RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().min(1).default(10),
@@ -63,8 +71,14 @@ const envSchema = z.object({
     ),
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_MODEL: z.string().default("gpt-5.4-mini"),
+  OPENAI_BASE_URL: z.string().optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
   ANTHROPIC_MODEL: z.string().default("claude-sonnet-4-20250514"),
+  GOOGLE_GEMINI_API_KEY: z.string().optional(),
+  GOOGLE_GEMINI_MODEL: z.string().default("gemini-2.5-pro"),
+  XAI_API_KEY: z.string().optional(),
+  XAI_MODEL: z.string().default("grok-4.20-reasoning"),
+  XAI_BASE_URL: z.string().default("https://api.x.ai/v1"),
 });
 
 const parsed = envSchema.safeParse({
@@ -72,6 +86,7 @@ const parsed = envSchema.safeParse({
   APP_URL: process.env.APP_URL,
   MONGODB_URI: process.env.MONGODB_URI,
   AI_PROVIDER: process.env.AI_PROVIDER,
+  AI_ALLOW_APP_PROVIDER_FALLBACK: process.env.AI_ALLOW_APP_PROVIDER_FALLBACK,
   AI_MAX_RETRIES: process.env.AI_MAX_RETRIES,
   AI_REQUEST_TIMEOUT_MS: process.env.AI_REQUEST_TIMEOUT_MS,
   AI_RETRY_BASE_DELAY_MS: process.env.AI_RETRY_BASE_DELAY_MS,
@@ -90,6 +105,7 @@ const parsed = envSchema.safeParse({
   AUTH_COOKIE_SAME_SITE: process.env.AUTH_COOKIE_SAME_SITE,
   PASSWORD_BCRYPT_ROUNDS: process.env.PASSWORD_BCRYPT_ROUNDS,
   PASSWORD_PEPPER: process.env.PASSWORD_PEPPER,
+  AI_SETTINGS_ENCRYPTION_KEY: process.env.AI_SETTINGS_ENCRYPTION_KEY,
   RATE_LIMIT_WINDOW_MS: process.env.RATE_LIMIT_WINDOW_MS,
   RATE_LIMIT_MAX_REQUESTS: process.env.RATE_LIMIT_MAX_REQUESTS,
   AUTH_RATE_LIMIT_MAX_REQUESTS: process.env.AUTH_RATE_LIMIT_MAX_REQUESTS,
@@ -103,8 +119,14 @@ const parsed = envSchema.safeParse({
   ADMIN_EMAILS: process.env.ADMIN_EMAILS,
   OPENAI_API_KEY: process.env.OPENAI_API_KEY,
   OPENAI_MODEL: process.env.OPENAI_MODEL,
+  OPENAI_BASE_URL: process.env.OPENAI_BASE_URL,
   ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
   ANTHROPIC_MODEL: process.env.ANTHROPIC_MODEL,
+  GOOGLE_GEMINI_API_KEY: process.env.GOOGLE_GEMINI_API_KEY,
+  GOOGLE_GEMINI_MODEL: process.env.GOOGLE_GEMINI_MODEL,
+  XAI_API_KEY: process.env.XAI_API_KEY,
+  XAI_MODEL: process.env.XAI_MODEL,
+  XAI_BASE_URL: process.env.XAI_BASE_URL,
 });
 
 if (!parsed.success) {
@@ -114,7 +136,9 @@ if (!parsed.success) {
 const data = parsed.data;
 const selectedProviderMissingKey =
   (data.AI_PROVIDER === "openai" && !data.OPENAI_API_KEY) ||
-  (data.AI_PROVIDER === "anthropic" && !data.ANTHROPIC_API_KEY);
+  (data.AI_PROVIDER === "anthropic" && !data.ANTHROPIC_API_KEY) ||
+  (data.AI_PROVIDER === "google_gemini" && !data.GOOGLE_GEMINI_API_KEY) ||
+  (data.AI_PROVIDER === "xai" && !data.XAI_API_KEY);
 const aiProviderConfigured = data.AI_PROVIDER === "bootstrap" || !selectedProviderMissingKey;
 
 if (
@@ -126,20 +150,9 @@ if (
 
 if (
   data.NODE_ENV === "production" &&
-  data.AI_PROVIDER === "openai" &&
-  !data.OPENAI_API_KEY
+  data.AI_SETTINGS_ENCRYPTION_KEY === "dev-insecure-ai-settings-key-change-me"
 ) {
-  throw new Error("OPENAI_API_KEY is required in production when AI_PROVIDER=openai.");
-}
-
-if (
-  data.NODE_ENV === "production" &&
-  data.AI_PROVIDER === "anthropic" &&
-  !data.ANTHROPIC_API_KEY
-) {
-  throw new Error(
-    "ANTHROPIC_API_KEY is required in production when AI_PROVIDER=anthropic.",
-  );
+  throw new Error("AI_SETTINGS_ENCRYPTION_KEY must be changed before running in production.");
 }
 
 if (
@@ -154,8 +167,22 @@ if (
 }
 
 if (
+  data.NODE_ENV === "production" &&
+  data.AI_PROVIDER !== "bootstrap" &&
+  selectedProviderMissingKey &&
+  process.env.AI_STORY_SUPPRESS_AI_KEY_WARNING !== "true"
+) {
+  console.warn(
+    `[config] AI_PROVIDER=${data.AI_PROVIDER} is selected without an app-level API key. This is allowed when you rely on per-user encrypted keys or disable app fallback, but app-level fallback routes will fail until a provider key is configured.`,
+  );
+}
+
+if (
   process.env.NEXT_PUBLIC_OPENAI_API_KEY ||
   process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY ||
+  process.env.NEXT_PUBLIC_GOOGLE_GEMINI_API_KEY ||
+  process.env.NEXT_PUBLIC_XAI_API_KEY ||
+  process.env.NEXT_PUBLIC_AI_SETTINGS_ENCRYPTION_KEY ||
   process.env.NEXT_PUBLIC_AUTH_SECRET
 ) {
   throw new Error("Sensitive secrets must not be exposed through NEXT_PUBLIC_* env vars.");

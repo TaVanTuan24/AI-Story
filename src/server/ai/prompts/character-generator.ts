@@ -7,7 +7,9 @@ import type {
 import {
   buildAntiDriftInstructions,
   buildJsonOnlyInstructions,
+  localizedText,
   buildPromptHeader,
+  resolvePromptLanguage,
   buildSchemaDisciplineInstructions,
   PROMPT_VERSION,
 } from "@/server/ai/prompts/shared";
@@ -39,35 +41,62 @@ export const characterGeneratorPrompt: AiPromptDefinition<
       "Input:",
       JSON.stringify(input, null, 2),
       "Requirements:",
+      "- Return valid JSON only. Do not add markdown, commentary, or any extra wrapper text.",
+      "- Return 2 to 6 major characters unless the premise clearly needs fewer or more, and never exceed 8.",
       "- Include the player character if appropriate.",
       "- Ensure each character has a distinct story function.",
       "- Avoid clone personalities and generic archetype labels.",
-      "- Initial relationship scores should be plausible and moderate unless the premise strongly implies otherwise.",
+      "- initialRelationshipScore must be an integer from -100 to 100.",
+      "- Negative scores mean distrust, rivalry, hostility, or fear. Positive scores mean warmth, trust, loyalty, or admiration.",
+      "- Keep relationship scores plausible and moderate unless the premise strongly implies an extreme.",
+      "- Valid relationship score examples: -65, -20, 0, 35, 80.",
+      "- Do not output values outside the required schema.",
     ].join("\n"),
-  fallback: () => ({
-    characters: [
-      {
-        id: "protagonist",
-        name: "Protagonist",
-        role: "Player character",
-        personality: ["adaptable", "driven"],
-        initialRelationshipScore: 50,
-        statusFlags: ["player"],
-        secretsKnown: [],
-        isPlayer: true,
-      },
-      {
-        id: "counterpart",
-        name: "Primary Counterpart",
-        role: "Key supporting figure",
-        personality: ["guarded", "observant"],
-        initialRelationshipScore: 45,
-        statusFlags: [],
-        secretsKnown: [],
-        isPlayer: false,
-      },
-    ],
-  }),
+  fallback: (input) => {
+    const language = resolvePromptLanguage(input);
+    return {
+      characters: [
+        {
+          id: "protagonist",
+          name: localizedText(language, {
+            en: "Protagonist",
+            vi: "Nhan vat chinh",
+          }),
+          role: localizedText(language, {
+            en: "Player character",
+            vi: "Nhan vat cua nguoi choi",
+          }),
+          personality: [
+            localizedText(language, { en: "adaptable", vi: "linh hoat" }),
+            localizedText(language, { en: "driven", vi: "quyet tam" }),
+          ],
+          initialRelationshipScore: 50,
+          statusFlags: ["player"],
+          secretsKnown: [],
+          isPlayer: true,
+        },
+        {
+          id: "counterpart",
+          name: localizedText(language, {
+            en: "Primary Counterpart",
+            vi: "Nhan vat doi ung chinh",
+          }),
+          role: localizedText(language, {
+            en: "Key supporting figure",
+            vi: "Nhan vat phu then chot",
+          }),
+          personality: [
+            localizedText(language, { en: "guarded", vi: "kin dao" }),
+            localizedText(language, { en: "observant", vi: "tinh mat" }),
+          ],
+          initialRelationshipScore: 45,
+          statusFlags: [],
+          secretsKnown: [],
+          isPlayer: false,
+        },
+      ],
+    };
+  },
   expectedOutputJsonSchema: JSON_SCHEMAS.generateCharacters.schema,
   notes: {
     tokenBudget:
